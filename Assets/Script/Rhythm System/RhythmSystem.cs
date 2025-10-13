@@ -91,5 +91,11 @@ public class RhythmSystem : MonoBehaviour
         // 立刻开始下一回合
         OnRoundStart?.Invoke();
     }
+    
+    public void SetCycleSeconds(float seconds)
+    {
+        var sec = Mathf.Max(0.01f, seconds);
+        forwardSeconds = sec;
+    }
 }
 

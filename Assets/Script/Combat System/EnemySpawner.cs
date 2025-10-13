@@ -43,4 +43,8 @@ public class EnemySpawner : MonoBehaviour
         e.SetTarget(player);
         e.SetMoveSpeed(moveSpeed);
     }
+    
+    public void SetEnemyPrefab(Enemy e)   => enemyPrefab = e;
+    public void SetSpawnInterval(float s) => spawnInterval = Mathf.Max(0.05f, s);
+
 }

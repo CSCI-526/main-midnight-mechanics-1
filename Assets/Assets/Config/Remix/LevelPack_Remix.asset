@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0e176666bfccce44a826a5ec8cb9741c, type: 3}
+  m_Name: LevelPack_Remix
+  m_EditorClassIdentifier: 
+  packName: Remix
+  levels:
+  - {fileID: 11400000, guid: 90d75797f398019459119d923589032e, type: 2}
+  - {fileID: 11400000, guid: bacb4683df077a4419aba1d645389eaa, type: 2}
+  - {fileID: 11400000, guid: 6a0dc750d38c1cd49b68732511cdb538, type: 2}
+  - {fileID: 11400000, guid: baf5daa8d113c274181ad32369ccb174, type: 2}
+  - {fileID: 11400000, guid: d97f721a8a1dad4498b1f0b0c9107b17, type: 2}

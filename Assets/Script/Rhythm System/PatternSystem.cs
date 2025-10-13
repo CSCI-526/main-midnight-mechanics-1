@@ -187,4 +187,8 @@ public class PatternSystem : MonoBehaviour
 
         _wrongRoutine = null;
     }
+    public void SetSequenceLength(int len)
+    {
+        sequenceLength = Mathf.Max(1, len);
+    }
 }
