@@ -1,22 +1,38 @@
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public class GameplayEntry : MonoBehaviour
 {
     [SerializeField] private LevelRunner runner;
-    [SerializeField] private LevelPack fallbackPack; // 直接进Gameplay时用的兜底
-    [SerializeField] private SceneFlow sceneFlow;    // 用于回到 LevelSelector
+    [SerializeField] private LevelPack fallbackPack;
+    [SerializeField] private SceneFlow sceneFlow;
+
+    [Header("UI")]
+    [SerializeField] private ShopUI shopUI; 
+    [SerializeField] private GameOverUI gameOverUI; 
 
     GameSession session;
+    PlayerHealth player;
 
     void Awake()
     {
         if (!runner) runner = FindObjectOfType<LevelRunner>();
         if (!sceneFlow) sceneFlow = FindObjectOfType<SceneFlow>(true);
         session = GameSession.Instance ?? FindObjectOfType<GameSession>();
+        player = FindObjectOfType<PlayerHealth>();
     }
 
-    void OnEnable()  { if (runner) runner.OnLevelEnded += HandleLevelEnded; }
-    void OnDisable() { if (runner) runner.OnLevelEnded -= HandleLevelEnded; }
+    void OnEnable()
+    {
+        if (runner) runner.OnLevelEnded += HandleLevelEnded;
+        if (player) player.OnDied += HandlePlayerDied; 
+    }
+
+    void OnDisable()
+    {
+        if (runner) runner.OnLevelEnded -= HandleLevelEnded;
+        if (player) player.OnDied -= HandlePlayerDied;
+    }
 
     void Start()
     {
@@ -28,9 +44,8 @@ public class GameplayEntry : MonoBehaviour
             Debug.LogError("[GameplayEntry] No LevelPack or empty levels.");
             return;
         }
-        
-        if (session && session.SelectedPack == null) session.BeginPack(pack);
 
+        if (session && session.SelectedPack == null) session.BeginPack(pack);
         LoadCurrentLevel();
     }
 
@@ -41,7 +56,20 @@ public class GameplayEntry : MonoBehaviour
         runner.Apply(level);
     }
 
+    // —— 关卡结束：先弹商店；点 Next 再继续/回选单 —— 
     void HandleLevelEnded()
+    {
+        if (!shopUI)
+        {
+            Debug.LogWarning("[GameplayEntry] ShopUI not assigned, auto-continue.");
+            ContinueAfterShop();
+            return;
+        }
+
+        shopUI.Show(ContinueAfterShop);
+    }
+
+    void ContinueAfterShop()
     {
         if (session != null && session.TryAdvanceLevel())
         {
@@ -49,7 +77,21 @@ public class GameplayEntry : MonoBehaviour
         }
         else
         {
-            sceneFlow.LoadLevelSelector();
+            if (sceneFlow) sceneFlow.LoadLevelSelector();
+            else SceneManager.LoadScene("LevelSelector", LoadSceneMode.Single);
+        }
+    }
+
+    // —— 玩家死亡：弹 GameOver —— 
+    void HandlePlayerDied()
+    {
+        if (gameOverUI) gameOverUI.Show();
+        else
+        {
+            // 极简兜底：直接回选单
+            Time.timeScale = 1f;
+            if (sceneFlow) sceneFlow.LoadLevelSelector();
+            else SceneManager.LoadScene("LevelSelector", LoadSceneMode.Single);
         }
     }
 }

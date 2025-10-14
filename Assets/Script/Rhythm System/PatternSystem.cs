@@ -29,6 +29,7 @@ public class PatternSystem : MonoBehaviour
     private int _roundSerial = 0;
 
     public bool IsSequenceCompleted => _completed;
+    public void SetSequenceLength(int len) => sequenceLength = Mathf.Max(1, len); // ← 只保留这一份
 
     void OnEnable()
     {
@@ -61,11 +62,11 @@ public class PatternSystem : MonoBehaviour
         else if (Input.GetKeyDown(KeyCode.RightArrow) || Input.GetKeyDown(KeyCode.D)) Consume(Dir.Right);
     }
 
-    // —— 回合控制 ——
+    // —— 回合控制 —— 
     void HandleRoundStart()
     {
-        _roundSerial++;               // 新回合标记
-        StopWrongRoutineIfAny();      // 终止可能仍在执行的错误闪烁
+        _roundSerial++;
+        StopWrongRoutineIfAny();
 
         BuildNewSequence();
         BuildUI();
@@ -74,22 +75,14 @@ public class PatternSystem : MonoBehaviour
         _completed  = false;
     }
 
-    void HandleRoundEnd()
-    {
-        // 留空：真正的刷新在下一次 OnRoundStart 里完成
-    }
+    void HandleRoundEnd() { }
 
     void HandleBasicHit()
     {
         if (_completed)
-        {
             Debug.Log("<color=#2EEA55>[PATTERN] BASIC + SKILL</color>");
-            // 这里后续接技能触发
-        }
         else
-        {
             Debug.Log("<color=#55AAFF>[PATTERN] BASIC only</color>");
-        }
     }
 
     // —— 生成 —— 
@@ -98,22 +91,20 @@ public class PatternSystem : MonoBehaviour
         _seq.Clear();
         int len = Mathf.Max(1, sequenceLength);
         for (int i = 0; i < len; i++)
-            _seq.Add((Dir)Random.Range(0, 4)); // 0..3
+            _seq.Add((Dir)Random.Range(0, 4));
     }
 
     // —— UI 构建 —— 
     void BuildUI()
     {
-        // 清理旧格子（保留模板本体）
         for (int i = patternRow.childCount - 1; i >= 0; i--)
         {
             var child = patternRow.GetChild(i);
-            if (child.gameObject == cellTemplate.gameObject) continue; // 不删模板
+            if (child.gameObject == cellTemplate.gameObject) continue;
             Destroy(child.gameObject);
         }
         _cells.Clear();
 
-        // 生成新格子
         foreach (var dir in _seq)
         {
             var cell = Instantiate(cellTemplate, patternRow);
@@ -135,12 +126,10 @@ public class PatternSystem : MonoBehaviour
         {
             _cells[_inputIndex].SetOk();
             _inputIndex++;
-            if (_inputIndex >= _seq.Count)
-                _completed = true;
+            if (_inputIndex >= _seq.Count) _completed = true;
         }
         else
         {
-            // 按错：所有格子切到 Wrong，短暂停留后直接“随机新序列 + 重建UI + 进度清零”
             FlashAllWrongThenRefresh();
         }
     }
@@ -152,7 +141,7 @@ public class PatternSystem : MonoBehaviour
         _wrongRoutine = StartCoroutine(WrongAndRefreshCoro(_roundSerial));
     }
 
-    void StopWrongRoutineIfAny()
+    public void StopWrongRoutineIfAny()
     {
         if (_wrongRoutine != null)
         {
@@ -163,20 +152,16 @@ public class PatternSystem : MonoBehaviour
 
     IEnumerator WrongAndRefreshCoro(int roundSerialAtStart)
     {
-        // 1) 全部显示 Wrong
-        for (int i = 0; i < _cells.Count; i++)
-            _cells[i].SetWrong();
+        for (int i = 0; i < _cells.Count; i++) _cells[i].SetWrong();
 
-        // 2) 停留一段时间；若期间回合被切换（空格触发 ForceNextRound）则放弃
         float t = 0f;
         while (t < wrongFlashSeconds)
         {
-            if (roundSerialAtStart != _roundSerial) yield break; // 已进入新回合，协程终止
+            if (roundSerialAtStart != _roundSerial) yield break;
             t += Time.deltaTime;
             yield return null;
         }
 
-        // 3) 同一回合内，直接重刷新序列与UI
         if (roundSerialAtStart == _roundSerial)
         {
             BuildNewSequence();
@@ -187,8 +172,22 @@ public class PatternSystem : MonoBehaviour
 
         _wrongRoutine = null;
     }
-    public void SetSequenceLength(int len)
+    
+    
+    public void ResetForNewLevel()
     {
-        sequenceLength = Mathf.Max(1, len);
+        StopWrongRoutineIfAny();
+        
+        for (int i = patternRow.childCount - 1; i >= 0; i--)
+        {
+            var child = patternRow.GetChild(i);
+            if (child.gameObject == cellTemplate.gameObject) continue;
+            Destroy(child.gameObject);
+        }
+        _cells.Clear();
+
+        _seq.Clear();
+        _inputIndex = 0;
+        _completed  = false;
     }
 }

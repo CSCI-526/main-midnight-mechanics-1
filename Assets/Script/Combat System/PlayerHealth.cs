@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 public class PlayerHealth : MonoBehaviour
@@ -6,22 +7,30 @@ public class PlayerHealth : MonoBehaviour
     public int MaxHp => maxHp;
     public int CurrentHp { get; private set; }
 
-    void Awake() => CurrentHp = maxHp;
+    public event Action OnDied;
+    private bool _dead = false;
+
+    void Awake()
+    {
+        CurrentHp = maxHp;
+        _dead = false;
+    }
     
     public void TakeDamage(int amount)
     {
         int dmg = Mathf.Abs(amount);
-        if (dmg <= 0) return;
+        if (dmg <= 0 || _dead) return;
 
         CurrentHp = Mathf.Max(0, CurrentHp - dmg);
         Debug.Log($"[HP] Player: {CurrentHp}/{maxHp}");
         
         Enemy.KillAll();
 
-        if (CurrentHp <= 0)
+        if (CurrentHp <= 0 && !_dead)
         {
+            _dead = true;
             Debug.LogWarning("[HP] Player Dead");
-            // TODO: Game Over 流程
+            OnDied?.Invoke();     // ☆ 通知UI
         }
     }
 }

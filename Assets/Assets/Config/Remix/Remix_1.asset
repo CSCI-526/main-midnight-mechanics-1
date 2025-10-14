@@ -13,12 +13,14 @@ MonoBehaviour:
   m_Name: Remix_1
   m_EditorClassIdentifier: 
   levelName: Remix-1
-  levelDurationSeconds: 5
-  bgm: {fileID: 0}
-  bpm: 120
+  bgm: {fileID: 8300000, guid: b9e230e6521d4184284cc65cc3393809, type: 3}
+  bpm: 30
   cycleBeats: 1
-  hitCenter: 0.82
-  hitHalfWidth: 0.04
+  hitCenter: 0.8
+  hitHalfWidth: 0.1
   sequenceLength: 3
-  enemyPrefab: {fileID: 0}
-  spawnInterval: 1.5
+  levelDurationSeconds: 20
+  enemyPrefab: {fileID: 1398160427443776457, guid: 60e602726284b7e4f9514c2ff9e9c51d, type: 3}
+  spawnInterval: 1
+  spawnStartDelay: 3
+  spawnStopEarly: 5
