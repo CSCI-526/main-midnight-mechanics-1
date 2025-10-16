@@ -8,8 +8,22 @@ public class Bullet : MonoBehaviour
 
     private Rigidbody2D rb;
     private Vector2 velocity;
+    private int damage = 1; // TODO: 敌人做血量后启用
 
-    // 初始化：给它一个朝向
+    public float DefaultSpeed => speed;
+
+    public void Configure(float speedOverride, int damageValue)
+    {
+        if (speedOverride > 0f) speed = speedOverride;
+        damage = Mathf.Max(1, damageValue);
+    }
+    
+    public void FireDir(Vector3 from, Vector2 dir)
+    {
+        transform.position = from;
+        velocity = dir.normalized * speed;
+    }
+    
     public void FireTowards(Vector3 from, Vector3 to)
     {
         transform.position = from;
@@ -33,6 +47,7 @@ public class Bullet : MonoBehaviour
         var enemy = other.GetComponent<Enemy>();
         if (enemy)
         {
+            // TODO: 敌人做 HP 后：enemy.TakeDamage(damage);
             enemy.Kill();
             Die();
         }
