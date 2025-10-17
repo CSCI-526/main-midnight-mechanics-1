@@ -9,6 +9,7 @@ having all the extra input correctly will perform extra skill.
 
 Unity Project GitHub Repository
 https://github.com/CSCI-526/main-midnight-mechanics-1
+
 Playable Alpha Progress Check Build
 https://csci-526.github.io/main-midnight-mechanics-1/alphaProgressCheck/
 
