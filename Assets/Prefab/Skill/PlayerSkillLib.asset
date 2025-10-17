@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 494a865a56e30cf4ab7f652648cc5a31, type: 3}
+  m_Name: PlayerSkillLib
+  m_EditorClassIdentifier: 
+  actives:
+  - code: 100
+    id: 0
+    displayName: Chain Bolt
+    tier: 1
+    icon: {fileID: 2974091710153103638, guid: 84b94de70bd187541886a79242af3576, type: 3}
+    implementation: {fileID: 11400000, guid: 4986ab556483c0a40b2466bd8dfddeb8, type: 2}
+  - code: 101
+    id: 1
+    displayName: Explosion
+    tier: 1
+    icon: {fileID: 2974091710153103638, guid: 84b94de70bd187541886a79242af3576, type: 3}
+    implementation: {fileID: 11400000, guid: 304fa893039db1d4697b91c0aec0b9b7, type: 2}
+  - code: 102
+    id: 1
+    displayName: Orbit Orb
+    tier: 1
+    icon: {fileID: 2974091710153103638, guid: 84b94de70bd187541886a79242af3576, type: 3}
+    implementation: {fileID: 11400000, guid: ad5fdde22a5d76f45a4d4f5b406a0dfe, type: 2}
+  passives: []

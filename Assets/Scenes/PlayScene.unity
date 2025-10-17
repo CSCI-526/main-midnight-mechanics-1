@@ -3994,14 +3994,13 @@ MonoBehaviour:
   player: {fileID: 1170058754}
   playerSkills: {fileID: 2035699231}
   pattern: {fileID: 385548354}
-  bulletPrefab: {fileID: 4850809910169361065, guid: cf67bc322aa6b5043a762d87dca9bdb0, type: 3}
-  basicSpreadStepDeg: 6
-  chainBoltPrefab: {fileID: 3548425647231183936, guid: 8ccdf450580483f4b986f368bf0f0d17, type: 3}
-  chainSearchRadius: 6
-  chainBaseHops: 1
-  chainLifeTime: 5
-  chainSpreadStepDeg: 8
-  grantActivesOnStart: 00000000
+  library: {fileID: 11400000, guid: abb6bc86d4543934b8b53e595a6f192d, type: 2}
+  alwaysCastSkills:
+  - {fileID: 11400000, guid: 6b3ac277782fc6343968144e3a3efddb, type: 2}
+  debugGrantOnStart:
+  - {fileID: 11400000, guid: 4986ab556483c0a40b2466bd8dfddeb8, type: 2}
+  - {fileID: 11400000, guid: 304fa893039db1d4697b91c0aec0b9b7, type: 2}
+  - {fileID: 11400000, guid: ad5fdde22a5d76f45a4d4f5b406a0dfe, type: 2}
 --- !u!4 &2101335979
 Transform:
   m_ObjectHideFlags: 0

@@ -9,12 +9,8 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 494a865a56e30cf4ab7f652648cc5a31, type: 3}
-  m_Name: PlayerSkillLib
+  m_Script: {fileID: 11500000, guid: a38520d24f66e1042bbd1e9c9996b80d, type: 3}
+  m_Name: Basic Shot
   m_EditorClassIdentifier: 
-  actives:
-  - id: 0
-    displayName: 
-    tier: 1
-    icon: {fileID: 2974091710153103638, guid: 84b94de70bd187541886a79242af3576, type: 3}
-  passives: []
+  bulletPrefab: {fileID: 4850809910169361065, guid: cf67bc322aa6b5043a762d87dca9bdb0, type: 3}
+  spreadStepDeg: 6
