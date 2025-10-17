@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Remix_1
   m_EditorClassIdentifier: 
   levelName: Remix-1
-  bgm: {fileID: 8300000, guid: b9e230e6521d4184284cc65cc3393809, type: 3}
+  bgm: {fileID: 0}
   bpm: 128
   cycleBeats: 4
   hitCenter: 0.8
