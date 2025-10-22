@@ -1,38 +1,29 @@
 using UnityEngine;
-using UnityEngine.SceneManagement;
 
 public class GameplayEntry : MonoBehaviour
 {
     [SerializeField] private LevelRunner runner;
     [SerializeField] private LevelPack fallbackPack;
     [SerializeField] private SceneFlow sceneFlow;
-
-    [Header("UI")]
-    [SerializeField] private ShopUI shopUI; 
-    [SerializeField] private GameOverUI gameOverUI; 
+    [SerializeField] private ShopUI shopUI;
+    [SerializeField] private ShopPanel shopPanel;
+    [SerializeField] private GoldWallet wallet;
 
     GameSession session;
-    PlayerHealth player;
 
     void Awake()
     {
-        if (!runner) runner = FindObjectOfType<LevelRunner>();
+        if (!runner)    runner    = FindObjectOfType<LevelRunner>(true);
         if (!sceneFlow) sceneFlow = FindObjectOfType<SceneFlow>(true);
-        session = GameSession.Instance ?? FindObjectOfType<GameSession>();
-        player = FindObjectOfType<PlayerHealth>();
+        if (!shopUI)    shopUI    = FindObjectOfType<ShopUI>(true);
+        if (!shopPanel) shopPanel = FindObjectOfType<ShopPanel>(true);
+        if (!wallet)    wallet    = FindObjectOfType<GoldWallet>(true); // ★ 自动查找
+
+        session = GameSession.Instance ?? FindObjectOfType<GameSession>(true);
     }
 
-    void OnEnable()
-    {
-        if (runner) runner.OnLevelEnded += HandleLevelEnded;
-        if (player) player.OnDied += HandlePlayerDied; 
-    }
-
-    void OnDisable()
-    {
-        if (runner) runner.OnLevelEnded -= HandleLevelEnded;
-        if (player) player.OnDied -= HandlePlayerDied;
-    }
+    void OnEnable()  { if (runner) runner.OnLevelEnded += HandleLevelEnded; }
+    void OnDisable() { if (runner) runner.OnLevelEnded -= HandleLevelEnded; }
 
     void Start()
     {
@@ -46,7 +37,8 @@ public class GameplayEntry : MonoBehaviour
         }
 
         if (session && session.SelectedPack == null) session.BeginPack(pack);
-        LoadCurrentLevel();
+        
+        OpenShopThen(() => LoadCurrentLevel());
     }
 
     void LoadCurrentLevel()
@@ -56,42 +48,23 @@ public class GameplayEntry : MonoBehaviour
         runner.Apply(level);
     }
 
-    // —— 关卡结束：先弹商店；点 Next 再继续/回选单 —— 
     void HandleLevelEnded()
     {
-        if (!shopUI)
-        {
-            Debug.LogWarning("[GameplayEntry] ShopUI not assigned, auto-continue.");
-            ContinueAfterShop();
-            return;
-        }
-
-        shopUI.Show(ContinueAfterShop);
-    }
-
-    void ContinueAfterShop()
-    {
         if (session != null && session.TryAdvanceLevel())
-        {
-            LoadCurrentLevel();
-        }
+            OpenShopThen(() => LoadCurrentLevel());
         else
-        {
-            if (sceneFlow) sceneFlow.LoadLevelSelector();
-            else SceneManager.LoadScene("LevelSelector", LoadSceneMode.Single);
-        }
+            sceneFlow.LoadLevelSelector();
     }
 
-    // —— 玩家死亡：弹 GameOver —— 
-    void HandlePlayerDied()
+    void OpenShopThen(System.Action next)
     {
-        if (gameOverUI) gameOverUI.Show();
-        else
-        {
-            // 极简兜底：直接回选单
-            Time.timeScale = 1f;
-            if (sceneFlow) sceneFlow.LoadLevelSelector();
-            else SceneManager.LoadScene("LevelSelector", LoadSceneMode.Single);
-        }
+        var justFinished = runner ? runner.Current : null;
+        if (wallet && justFinished && justFinished.rewardGold > 0)
+            wallet.Add(justFinished.rewardGold);
+        
+        if (shopPanel) shopPanel.BuildOffers();
+
+        if (shopUI) shopUI.Show(next);
+        else next?.Invoke();
     }
 }

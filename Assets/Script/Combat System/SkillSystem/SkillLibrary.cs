@@ -19,6 +19,8 @@ public class SkillLibrary : ScriptableObject
         public SkillTier tier = SkillTier.Tier1;
         public Sprite icon;
         public Game.Skills.ActiveSkillBase implementation;
+        
+        [Min(0)] public int price = 30;
     }
 
     [System.Serializable]
@@ -31,6 +33,8 @@ public class SkillLibrary : ScriptableObject
         public string displayName;
         public SkillTier tier = SkillTier.Tier1;
         public Sprite icon;
+        
+        [Min(0)] public int price = 30;
     }
 
     [Header("Actives (顺序即枚举值：0=ChainBolt,1=Explosion,2=OrbitOrb,3=SpreadShot)")]

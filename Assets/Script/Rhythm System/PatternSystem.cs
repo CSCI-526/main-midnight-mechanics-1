@@ -9,7 +9,7 @@ public class PatternSystem : MonoBehaviour
     [Header("Refs")]
     [SerializeField] private RhythmSystem rhythm;
     [SerializeField] private RectTransform patternRow;
-    [SerializeField] private PatternCell cellTemplate; // 请保持 Inactive 的模板，位于 patternRow 下
+    [SerializeField] private PatternCell cellTemplate; 
 
     [Header("Settings")]
     [SerializeField, Tooltip("每回合指令长度")]

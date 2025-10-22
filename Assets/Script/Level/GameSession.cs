@@ -1,5 +1,6 @@
 using UnityEngine;
 
+[DefaultExecutionOrder(-1000)]
 public class GameSession : MonoBehaviour
 {
     public static GameSession Instance { get; private set; }
@@ -11,10 +12,9 @@ public class GameSession : MonoBehaviour
     {
         if (Instance && Instance != this) { Destroy(gameObject); return; }
         Instance = this;
-        DontDestroyOnLoad(gameObject);
+        DontDestroyOnLoad(transform.root.gameObject);
     }
 
-    // 选了某个专辑（曲库）就从第0关开始
     public void BeginPack(LevelPack pack)
     {
         SelectedPack = pack;
@@ -28,7 +28,6 @@ public class GameSession : MonoBehaviour
         return SelectedPack.levels[i];
     }
 
-    // 
     public bool TryAdvanceLevel()
     {
         if (!SelectedPack) return false;

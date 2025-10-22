@@ -19,6 +19,9 @@ public class LevelConfig : ScriptableObject
     [Header("Spawning")]
     public Enemy enemyPrefab;
     public float spawnInterval = 1.5f;
+    
+    [Header("Rewards")]
+    [Min(0)] public int rewardGold = 20;
 
     [Tooltip("开场延迟多少秒后才开始刷怪")]
     public float spawnStartDelay = 0f;

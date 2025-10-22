@@ -9,6 +9,8 @@ public class HitJudge : MonoBehaviour
 
     public static event Action OnBasicHit;
     public static event Action OnMiss;
+    
+    private bool _lockedThisRound = false;
 
     void Reset()
     {
@@ -20,11 +22,47 @@ public class HitJudge : MonoBehaviour
         }
     }
 
+    void OnEnable()
+    {
+        if (rhythm)
+        {
+            rhythm.OnRoundStart += HandleRoundStart;
+            rhythm.OnRoundEnd   += HandleRoundEnd; 
+        }
+    }
+
+    void OnDisable()
+    {
+        if (rhythm)
+        {
+            rhythm.OnRoundStart -= HandleRoundStart;
+            rhythm.OnRoundEnd   -= HandleRoundEnd;
+        }
+    }
+
+    void HandleRoundStart()
+    {
+        _lockedThisRound = false; 
+        if (hitLabel) hitLabel.SetText(""); 
+    }
+
+    void HandleRoundEnd()
+    {
+
+    }
+
     void Update()
     {
+        if (!rhythm) return;
+
+
+        if (_lockedThisRound) return;
+
         if (Input.GetKeyDown(KeyCode.Space))
         {
-            if (rhythm && rhythm.IsInHitWindow())
+            _lockedThisRound = true;
+
+            if (rhythm.IsInHitWindow())
             {
                 hitLabel?.SetText("HIT");
                 if (hitLabel) hitLabel.color = Color.green;
@@ -37,7 +75,6 @@ public class HitJudge : MonoBehaviour
                 OnMiss?.Invoke();
             }
             
-            rhythm?.ForceNextRound();
         }
     }
 }

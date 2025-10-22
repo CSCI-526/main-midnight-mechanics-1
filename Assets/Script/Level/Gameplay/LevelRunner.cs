@@ -6,17 +6,24 @@ public class LevelRunner : MonoBehaviour
     [SerializeField] private RhythmSystem  rhythm;
     [SerializeField] private PatternSystem pattern;
     [SerializeField] private EnemySpawner  spawner;
-    [SerializeField] private AudioSource   music;   // 仅用于播放BGM；关卡结束仍按 levelDurationSeconds
+    [SerializeField] private AudioSource   music;
 
     public System.Action OnLevelEnded;
     public System.Action OnLevelApplied;
     public LevelConfig Current { get; private set; }
 
+    // --- 新增：关卡进度公开属性 ---
+    public float LevelDuration { get; private set; }          // 秒
+    public float ElapsedRealtime { get; private set; }        // 秒（实时）
+    public float Progress01 => LevelDuration > 0f
+        ? Mathf.Clamp01(ElapsedRealtime / LevelDuration) : 0f;
+
     Coroutine timerCo;
+    float _startRealtime;
+    bool  _running;
 
     public void Apply(LevelConfig c)
     {
-        // —— 跨关前：先彻底清场 —— 
         CleanLevelState();
 
         Current = c;
@@ -26,27 +33,23 @@ public class LevelRunner : MonoBehaviour
             return;
         }
 
-        // —— 播放（可选）：有 bgm 就播，但不依赖它计时 —— 
         if (music)
         {
             music.Stop();
             music.clip         = Current.bgm;
             music.playOnAwake  = false;
             music.loop         = false;
-            music.spatialBlend = 0f; // 2D 声音
+            music.spatialBlend = 0f;
             if (music.clip) music.Play();
         }
 
-        // —— 节奏参数 —— 
         float spb = 60f / Mathf.Max(1f, Current.bpm);
         rhythm.SetCycleSeconds(Mathf.Max(0.01f, Current.cycleBeats * spb));
         rhythm.hitCenter    = Current.hitCenter;
         rhythm.hitHalfWidth = Current.hitHalfWidth;
 
-        // —— 指令长度 —— 
         pattern.SetSequenceLength(Current.sequenceLength);
 
-        // —— 刷怪参数 + 窗口 —— 
         if (!spawner) spawner = FindObjectOfType<EnemySpawner>(true);
         if (spawner)
         {
@@ -60,46 +63,48 @@ public class LevelRunner : MonoBehaviour
             Debug.LogError("[LevelRunner] EnemySpawner not found in scene!");
         }
 
-        // —— 触发新的回合：让 PatternSystem 重建新指令串/格子 —— 
         rhythm.ForceNextRound();
-
         OnLevelApplied?.Invoke();
 
-        // —— 只按关卡时长计时 —— 
+        // --- 新增：进度初始化 + 实时计时 ---
         if (timerCo != null) StopCoroutine(timerCo);
-        float dur = Mathf.Max(1f, Current.levelDurationSeconds);
+        LevelDuration   = Mathf.Max(1f, Current.levelDurationSeconds);
+        ElapsedRealtime = 0f;
+        _startRealtime  = Time.realtimeSinceStartup;
+        _running        = true;
 
         string prefabName = (Current.enemyPrefab != null) ? Current.enemyPrefab.name : "<null>";
-        Debug.Log($"[LevelRunner] Applied '{Current.levelName}'  dur={dur}s  spawn={Current.spawnInterval}s  prefab={prefabName}  window=[+{Current.spawnStartDelay}s, -{Current.spawnStopEarly}s]");
+        Debug.Log($"[LevelRunner] Applied '{Current.levelName}'  dur={LevelDuration}s  spawn={Current.spawnInterval}s  prefab={prefabName}  window=[+{Current.spawnStartDelay}s, -{Current.spawnStopEarly}s]");
 
-        timerCo = StartCoroutine(LevelTimerSeconds(dur));
+        timerCo = StartCoroutine(LevelTimerSeconds(LevelDuration));
     }
 
     IEnumerator LevelTimerSeconds(float seconds)
     {
-        // 用实时计时，不受 Time.timeScale 影响
         yield return new WaitForSecondsRealtime(seconds);
+        _running        = false;
+        ElapsedRealtime = LevelDuration;
         Debug.Log("[LevelRunner] Level end (manual duration)");
         OnLevelEnded?.Invoke();
     }
 
-    // —— 跨关清场 —— 
     void CleanLevelState()
     {
         if (spawner) spawner.StopAndReset();
-        
         Enemy.KillAll();
-        
         var bullets = FindObjectsOfType<Bullet>();
         foreach (var b in bullets) if (b) Destroy(b.gameObject);
-        
         if (pattern) pattern.ResetForNewLevel();
-        
     }
 
-    // 开发期：N键跳过本关
     void Update()
     {
+        // --- 新增：每帧刷新实时进度 ---
+        if (_running)
+        {
+            ElapsedRealtime = Mathf.Clamp(Time.realtimeSinceStartup - _startRealtime, 0f, LevelDuration);
+        }
+
         if (Input.GetKeyDown(KeyCode.N))
             OnLevelEnded?.Invoke();
     }
