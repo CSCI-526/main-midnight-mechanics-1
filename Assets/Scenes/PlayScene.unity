@@ -710,7 +710,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   initializeOnAwake: 1
-  startGold: 70
+  startGold: 50
 --- !u!4 &204363596
 Transform:
   m_ObjectHideFlags: 0
@@ -760,7 +760,7 @@ MonoBehaviour:
   sceneFlow: {fileID: 2076442495}
   shopUI: {fileID: 385548356}
   shopPanel: {fileID: 385548360}
-  wallet: {fileID: 0}
+  wallet: {fileID: 204363595}
 --- !u!4 &216524998
 Transform:
   m_ObjectHideFlags: 0
