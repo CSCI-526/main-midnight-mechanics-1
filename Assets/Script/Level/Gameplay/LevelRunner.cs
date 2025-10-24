@@ -12,11 +12,9 @@ public class LevelRunner : MonoBehaviour
     public System.Action OnLevelApplied;
     public LevelConfig Current { get; private set; }
 
-    // --- 新增：关卡进度公开属性 ---
-    public float LevelDuration { get; private set; }          // 秒
-    public float ElapsedRealtime { get; private set; }        // 秒（实时）
-    public float Progress01 => LevelDuration > 0f
-        ? Mathf.Clamp01(ElapsedRealtime / LevelDuration) : 0f;
+    public float LevelDuration { get; private set; }
+    public float ElapsedRealtime { get; private set; }
+    public float Progress01 => LevelDuration > 0f ? Mathf.Clamp01(ElapsedRealtime / LevelDuration) : 0f;
 
     Coroutine timerCo;
     float _startRealtime;
@@ -27,11 +25,7 @@ public class LevelRunner : MonoBehaviour
         CleanLevelState();
 
         Current = c;
-        if (!Current)
-        {
-            Debug.LogError("[LevelRunner] LevelConfig is null");
-            return;
-        }
+        if (!Current) { Debug.LogError("[LevelRunner] LevelConfig is null"); return; }
 
         if (music)
         {
@@ -54,27 +48,17 @@ public class LevelRunner : MonoBehaviour
         if (spawner)
         {
             spawner.ApplyFromLevel(Current);
-            spawner.ConfigureWindow(Current.levelDurationSeconds,
-                                    Current.spawnStartDelay,
-                                    Current.spawnStopEarly);
-        }
-        else
-        {
-            Debug.LogError("[LevelRunner] EnemySpawner not found in scene!");
+            spawner.ConfigureWindow(Current.levelDurationSeconds, Current.spawnStartDelay, Current.spawnStopEarly);
         }
 
         rhythm.ForceNextRound();
         OnLevelApplied?.Invoke();
 
-        // --- 新增：进度初始化 + 实时计时 ---
         if (timerCo != null) StopCoroutine(timerCo);
         LevelDuration   = Mathf.Max(1f, Current.levelDurationSeconds);
         ElapsedRealtime = 0f;
         _startRealtime  = Time.realtimeSinceStartup;
         _running        = true;
-
-        string prefabName = (Current.enemyPrefab != null) ? Current.enemyPrefab.name : "<null>";
-        Debug.Log($"[LevelRunner] Applied '{Current.levelName}'  dur={LevelDuration}s  spawn={Current.spawnInterval}s  prefab={prefabName}  window=[+{Current.spawnStartDelay}s, -{Current.spawnStopEarly}s]");
 
         timerCo = StartCoroutine(LevelTimerSeconds(LevelDuration));
     }
@@ -88,6 +72,26 @@ public class LevelRunner : MonoBehaviour
         OnLevelEnded?.Invoke();
     }
 
+    public void AbortLevel()
+    {
+        // 停计时
+        if (timerCo != null) { StopCoroutine(timerCo); timerCo = null; }
+        _running = false;
+
+        // 停音乐
+        if (music) music.Stop();
+
+        // 停刷怪并清场
+        if (spawner) spawner.StopAndReset();
+        Enemy.KillAll();
+        var bullets = FindObjectsOfType<Bullet>();
+        foreach (var b in bullets) if (b) Destroy(b.gameObject);
+        
+        if (pattern) pattern.ResetForNewLevel();
+
+        Debug.Log("[LevelRunner] Aborted by player death.");
+    }
+
     void CleanLevelState()
     {
         if (spawner) spawner.StopAndReset();
@@ -99,11 +103,8 @@ public class LevelRunner : MonoBehaviour
 
     void Update()
     {
-        // --- 新增：每帧刷新实时进度 ---
         if (_running)
-        {
             ElapsedRealtime = Mathf.Clamp(Time.realtimeSinceStartup - _startRealtime, 0f, LevelDuration);
-        }
 
         if (Input.GetKeyDown(KeyCode.N))
             OnLevelEnded?.Invoke();

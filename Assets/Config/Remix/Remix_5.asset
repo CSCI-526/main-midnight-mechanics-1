@@ -19,7 +19,7 @@ MonoBehaviour:
   hitCenter: 0.8
   hitHalfWidth: 0.1
   sequenceLength: 6
-  levelDurationSeconds: 20
+  levelDurationSeconds: 30
   enemyPrefab: {fileID: 1398160427443776457, guid: 60e602726284b7e4f9514c2ff9e9c51d, type: 3}
   spawnInterval: 1.3
   rewardGold: 60

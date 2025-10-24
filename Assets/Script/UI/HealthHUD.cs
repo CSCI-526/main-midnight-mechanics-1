@@ -6,14 +6,13 @@ public sealed class HealthHUD : MonoBehaviour
 {
     [Header("References")]
     [SerializeField] private PlayerHealth player;
-    [SerializeField] private RectTransform row;   // 容器
-    [SerializeField] private Image heartPrefab;   // 预制（禁用状态，作为模板）
+    [SerializeField] private RectTransform row; 
+    [SerializeField] private Image heartPrefab; 
 
     [Header("Sprites")]
     [SerializeField] private Sprite fullHeart;
     [SerializeField] private Sprite emptyHeart;
-
-    // 内部缓存
+    
     private readonly List<Image> _hearts = new();
     private int _lastMax = -1;
 

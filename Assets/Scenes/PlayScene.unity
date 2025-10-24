@@ -760,7 +760,7 @@ MonoBehaviour:
   sceneFlow: {fileID: 2076442495}
   shopUI: {fileID: 385548356}
   shopPanel: {fileID: 385548360}
-  wallet: {fileID: 204363595}
+  gameOverUI: {fileID: 0}
 --- !u!4 &216524998
 Transform:
   m_ObjectHideFlags: 0
@@ -1518,8 +1518,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   root: {fileID: 636937510}
-  backButton: {fileID: 162454770}
-  sceneFlow: {fileID: 2076442495}
+  backToSelectButton: {fileID: 162454770}
+  retryButton: {fileID: 0}
 --- !u!114 &385548358
 MonoBehaviour:
   m_ObjectHideFlags: 0
