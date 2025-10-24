@@ -3,51 +3,41 @@ using UnityEngine;
 public class GameplayEntry : MonoBehaviour
 {
     [SerializeField] private LevelRunner runner;
-    [SerializeField] private LevelPack   fallbackPack;
-    [SerializeField] private SceneFlow   sceneFlow;
-    [SerializeField] private ShopUI      shopUI;
-    [SerializeField] private ShopPanel   shopPanel;
-    [SerializeField] private GameOverUI  gameOverUI; 
+    [SerializeField] private LevelPack fallbackPack;
+    [SerializeField] private SceneFlow sceneFlow;
+    [SerializeField] private ShopUI shopUI;
+    [SerializeField] private ShopPanel shopPanel;
+    [SerializeField] private GoldWallet wallet;
 
-    GameSession  session;
-    PlayerHealth player;
+    GameSession session;
 
     void Awake()
     {
-        if (!runner)     runner     = FindObjectOfType<LevelRunner>(true);
-        if (!sceneFlow)  sceneFlow  = FindObjectOfType<SceneFlow>(true);
-        if (!shopUI)     shopUI     = FindObjectOfType<ShopUI>(true);
-        if (!shopPanel)  shopPanel  = FindObjectOfType<ShopPanel>(true);
-        if (!gameOverUI) gameOverUI = FindObjectOfType<GameOverUI>(true);
+        if (!runner)    runner    = FindFirstObjectByType<LevelRunner>(FindObjectsInactive.Include);
+        if (!sceneFlow) sceneFlow = FindFirstObjectByType<SceneFlow>(FindObjectsInactive.Include);
+        if (!shopUI)    shopUI    = FindFirstObjectByType<ShopUI>(FindObjectsInactive.Include);
+        if (!shopPanel) shopPanel = FindFirstObjectByType<ShopPanel>(FindObjectsInactive.Include);
+        if (!wallet)    wallet    = FindFirstObjectByType<GoldWallet>(FindObjectsInactive.Include);
 
-        session = GameSession.Instance ?? FindObjectOfType<GameSession>(true);
-        player  = FindObjectOfType<PlayerHealth>(true);
+        session = GameSession.Instance ?? FindFirstObjectByType<GameSession>(FindObjectsInactive.Include);
     }
 
-    void OnEnable()
-    {
-        if (runner) runner.OnLevelEnded += HandleLevelEnded;
-        if (player) player.OnDied       += HandlePlayerDied;
-    }
-
-    void OnDisable()
-    {
-        if (runner) runner.OnLevelEnded -= HandleLevelEnded;
-        if (player) player.OnDied       -= HandlePlayerDied;
-    }
+    void OnEnable()  { if (runner) runner.OnLevelEnded += HandleLevelEnded; }
+    void OnDisable() { if (runner) runner.OnLevelEnded -= HandleLevelEnded; }
 
     void Start()
     {
         var pack = session ? session.SelectedPack : null;
         if (!pack) pack = fallbackPack;
+
         if (pack == null || pack.levels == null || pack.levels.Count == 0)
         {
             Debug.LogError("[GameplayEntry] No LevelPack or empty levels.");
             return;
         }
-        if (session && session.SelectedPack == null) session.BeginPack(pack);
 
-        // 开场先进入商店
+        if (session && session.SelectedPack == null) session.BeginPack(pack);
+        
         OpenShopThen(() => LoadCurrentLevel());
     }
 
@@ -60,39 +50,17 @@ public class GameplayEntry : MonoBehaviour
 
     void HandleLevelEnded()
     {
+        var finished = runner ? runner.Current : null;
+        if (wallet && finished && finished.rewardGold > 0)
+        {
+            wallet.Add(finished.rewardGold);
+            Debug.Log($"[GameplayEntry] Reward +{finished.rewardGold} gold for '{finished.levelName}'.");
+        }
+        
         if (session != null && session.TryAdvanceLevel())
             OpenShopThen(() => LoadCurrentLevel());
         else
             sceneFlow.LoadLevelSelector();
-    }
-
-    void HandlePlayerDied()
-    {
-        // 停止本关逻辑并清场
-        if (runner) runner.AbortLevel();
-        
-        var hj = FindObjectOfType<HitJudge>(true);
-        if (hj) hj.enabled = false;
-
-        // 弹出 GameOver
-        if (gameOverUI)
-        {
-            gameOverUI.Show(
-                onBackToSelect: () => sceneFlow.LoadLevelSelector(),
-                onRetry: () =>
-                {
-                    // 重置玩家，重开当前关
-                    if (player) player.ResetFull();
-                    var hj2 = FindObjectOfType<HitJudge>(true);
-                    if (hj2) hj2.enabled = true;
-                    LoadCurrentLevel();
-                });
-        }
-        else
-        {
-            // 没配 UI 时直接回选择页
-            sceneFlow.LoadLevelSelector();
-        }
     }
 
     void OpenShopThen(System.Action next)
