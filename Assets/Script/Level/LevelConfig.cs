@@ -6,26 +6,16 @@ public class LevelConfig : ScriptableObject
 {
     [Header("Basic")]
     public string levelName = "Level";
-    public AudioClip bgm;
-    public float bpm = 120f;
-    public int   cycleBeats = 1;
-    [Range(0f, 1f)] public float hitCenter = 0.82f;
-    [Range(0f, 0.5f)] public float hitHalfWidth = 0.04f;
-    public int sequenceLength = 3;
 
-    [Header("Duration")]
-    public float levelDurationSeconds = 90f;
+    [Header("Rhythm")]
+    public RhythmChart chart;            // 必填：本关谱面（含 bpm、拍号、音符时刻、默认领跑时间、关卡时长/用曲长）
 
     [Header("Spawning")]
-    public Enemy enemyPrefab;
-    public float spawnInterval = 1.5f;
-    
+    public Enemy enemyPrefab;            // 可空：无刷怪就留空
+    public float spawnInterval = 1.5f;   // >0 生效
+    public float spawnStartDelay = 0f;   // 开场延迟多少秒后开始刷怪
+    public float spawnStopEarly  = 0f;   // 结束前提前多少秒停止刷怪
+
     [Header("Rewards")]
-    [Min(0)] public int rewardGold = 20;
-
-    [Tooltip("开场延迟多少秒后才开始刷怪")]
-    public float spawnStartDelay = 0f;
-
-    [Tooltip("在关卡结束前，提前多少秒停止刷怪")]
-    public float spawnStopEarly = 0f;
+    [Min(0)] public int rewardGold = 20; // 关卡奖励
 }

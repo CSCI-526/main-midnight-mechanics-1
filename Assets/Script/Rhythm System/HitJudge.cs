@@ -4,77 +4,38 @@ using TMPro;
 
 public class HitJudge : MonoBehaviour
 {
-    [SerializeField] private RhythmSystem rhythm;
     [SerializeField] private TMP_Text hitLabel;
 
     public static event Action OnBasicHit;
     public static event Action OnMiss;
-    
-    private bool _lockedThisRound = false;
 
-    void Reset()
-    {
-        if (!rhythm) rhythm = FindObjectOfType<RhythmSystem>();
-        if (!hitLabel)
-        {
-            var t = GameObject.Find("HitLabel");
-            if (t) hitLabel = t.GetComponent<TMP_Text>();
-        }
-    }
+    // 由外部调用的安全触发器
+    public static void RaiseBasicHit() => OnBasicHit?.Invoke();
+    public static void RaiseMiss()     => OnMiss?.Invoke();
 
     void OnEnable()
     {
-        if (rhythm)
-        {
-            rhythm.OnRoundStart += HandleRoundStart;
-            rhythm.OnRoundEnd   += HandleRoundEnd; 
-        }
+        OnBasicHit += ShowHit;
+        OnMiss     += ShowMiss;
     }
 
     void OnDisable()
     {
-        if (rhythm)
-        {
-            rhythm.OnRoundStart -= HandleRoundStart;
-            rhythm.OnRoundEnd   -= HandleRoundEnd;
-        }
+        OnBasicHit -= ShowHit;
+        OnMiss     -= ShowMiss;
     }
 
-    void HandleRoundStart()
+    void ShowHit()
     {
-        _lockedThisRound = false; 
-        if (hitLabel) hitLabel.SetText(""); 
+        if (!hitLabel) return;
+        hitLabel.SetText("HIT");
+        hitLabel.color = Color.green;
     }
 
-    void HandleRoundEnd()
+    void ShowMiss()
     {
-
-    }
-
-    void Update()
-    {
-        if (!rhythm) return;
-
-
-        if (_lockedThisRound) return;
-
-        if (Input.GetKeyDown(KeyCode.Space))
-        {
-            _lockedThisRound = true;
-
-            if (rhythm.IsInHitWindow())
-            {
-                hitLabel?.SetText("HIT");
-                if (hitLabel) hitLabel.color = Color.green;
-                OnBasicHit?.Invoke();
-            }
-            else
-            {
-                hitLabel?.SetText("MISS");
-                if (hitLabel) hitLabel.color = Color.red;
-                OnMiss?.Invoke();
-            }
-            
-        }
+        if (!hitLabel) return;
+        hitLabel.SetText("MISS");
+        hitLabel.color = Color.red;
     }
 }

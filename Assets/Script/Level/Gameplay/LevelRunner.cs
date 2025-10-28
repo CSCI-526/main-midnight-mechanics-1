@@ -1,112 +1,134 @@
-using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 public class LevelRunner : MonoBehaviour
 {
-    [SerializeField] private RhythmSystem  rhythm;
+    [Header("Refs")]
+    [SerializeField] private AudioSource   music;
     [SerializeField] private PatternSystem pattern;
     [SerializeField] private EnemySpawner  spawner;
-    [SerializeField] private AudioSource   music;
+
+    [Header("Timing Adjust")]
+    [SerializeField] private float  leadTimeSecOverride = -1f;
+    [SerializeField] private double globalOffsetSec     = 0.0;
 
     public System.Action OnLevelEnded;
     public System.Action OnLevelApplied;
-    public LevelConfig Current { get; private set; }
 
+    public LevelConfig Current { get; private set; }
     public float LevelDuration { get; private set; }
     public float ElapsedRealtime { get; private set; }
     public float Progress01 => LevelDuration > 0f ? Mathf.Clamp01(ElapsedRealtime / LevelDuration) : 0f;
 
-    Coroutine timerCo;
-    float _startRealtime;
-    bool  _running;
+    RhythmChart chart;
+    List<RhythmChart.ChartEvent> timeline;
+    int   cursor;
+    bool  running;
+    float leadTimeSec;
+
+    void Awake()
+    {
+        if (!pattern) pattern = FindFirstObjectByType<PatternSystem>(FindObjectsInactive.Include);
+    }
 
     public void Apply(LevelConfig c)
     {
         CleanLevelState();
 
         Current = c;
-        if (!Current) { Debug.LogError("[LevelRunner] LevelConfig is null"); return; }
+        if (!pattern) { Debug.LogError("[LevelRunner] PatternSystem is null."); return; }
+        if (!c || !c.chart) { Debug.LogError("[LevelRunner] LevelConfig.chart is null."); return; }
+
+        chart = c.chart;
+        pattern.ResetForNewLevel();
+        pattern.EnableChartMode(true);
+
+        timeline   = chart.BuildTimeline();
+        cursor     = 0;
+        leadTimeSec = (leadTimeSecOverride > 0f ? leadTimeSecOverride : chart.defaultLeadTimeSec);
+
+        LevelDuration   = chart.GetLevelDurationSec();
+        ElapsedRealtime = 0f;
 
         if (music)
         {
             music.Stop();
-            music.clip         = Current.bgm;
             music.playOnAwake  = false;
             music.loop         = false;
             music.spatialBlend = 0f;
+            music.clip         = chart.clip;
             if (music.clip) music.Play();
         }
 
-        float spb = 60f / Mathf.Max(1f, Current.bpm);
-        rhythm.SetCycleSeconds(Mathf.Max(0.01f, Current.cycleBeats * spb));
-        rhythm.hitCenter    = Current.hitCenter;
-        rhythm.hitHalfWidth = Current.hitHalfWidth;
-
-        pattern.SetSequenceLength(Current.sequenceLength);
-
-        if (!spawner) spawner = FindObjectOfType<EnemySpawner>(true);
         if (spawner)
         {
-            spawner.ApplyFromLevel(Current);
-            spawner.ConfigureWindow(Current.levelDurationSeconds, Current.spawnStartDelay, Current.spawnStopEarly);
+            spawner.ConfigureWindow(LevelDuration, c.spawnStartDelay, c.spawnStopEarly);
+            if (c.enemyPrefab) spawner.SetEnemyPrefab(c.enemyPrefab);
+            if (c.spawnInterval > 0f) spawner.SetSpawnInterval(c.spawnInterval);
         }
 
-        rhythm.ForceNextRound();
+        running = true;
         OnLevelApplied?.Invoke();
-
-        if (timerCo != null) StopCoroutine(timerCo);
-        LevelDuration   = Mathf.Max(1f, Current.levelDurationSeconds);
-        ElapsedRealtime = 0f;
-        _startRealtime  = Time.realtimeSinceStartup;
-        _running        = true;
-
-        timerCo = StartCoroutine(LevelTimerSeconds(LevelDuration));
     }
 
-    IEnumerator LevelTimerSeconds(float seconds)
+    void Update()
     {
-        yield return new WaitForSecondsRealtime(seconds);
-        _running        = false;
-        ElapsedRealtime = LevelDuration;
-        Debug.Log("[LevelRunner] Level end (manual duration)");
-        OnLevelEnded?.Invoke();
+        if (!running) return;
+
+        ElapsedRealtime = Mathf.Min(ElapsedRealtime + Time.deltaTime, LevelDuration);
+        double now = GetSongTimeSec() + globalOffsetSec;
+
+        while (cursor < (timeline?.Count ?? 0))
+        {
+            var ev = timeline[cursor];
+            if (ev.tSec <= now + leadTimeSec)
+            {
+                if (ev.kind == RhythmChart.NoteKind.Tap)
+                    pattern.EnqueueTap(ev.tSec, leadTimeSec);
+                else
+                    pattern.EnqueueDouble(ev.tSec, leadTimeSec);
+
+                cursor++;
+            }
+            else break;
+        }
+
+        pattern.SetChartNow(now);
+
+        if (now >= (double)LevelDuration)
+        {
+            running = false;
+            OnLevelEnded?.Invoke();
+        }
+
+        if (Input.GetKeyDown(KeyCode.N))
+            OnLevelEnded?.Invoke();
     }
 
     public void AbortLevel()
     {
-        // 停计时
-        if (timerCo != null) { StopCoroutine(timerCo); timerCo = null; }
-        _running = false;
-
-        // 停音乐
+        running = false;
         if (music) music.Stop();
-
-        // 停刷怪并清场
         if (spawner) spawner.StopAndReset();
         Enemy.KillAll();
-        var bullets = FindObjectsOfType<Bullet>();
+        var bullets = FindObjectsByType<Bullet>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
         foreach (var b in bullets) if (b) Destroy(b.gameObject);
-        
         if (pattern) pattern.ResetForNewLevel();
-
-        Debug.Log("[LevelRunner] Aborted by player death.");
     }
 
     void CleanLevelState()
     {
         if (spawner) spawner.StopAndReset();
         Enemy.KillAll();
-        var bullets = FindObjectsOfType<Bullet>();
+        var bullets = FindObjectsByType<Bullet>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
         foreach (var b in bullets) if (b) Destroy(b.gameObject);
         if (pattern) pattern.ResetForNewLevel();
     }
 
-    void Update()
+    double GetSongTimeSec()
     {
-        if (_running)
-            ElapsedRealtime = Mathf.Clamp(Time.realtimeSinceStartup - _startRealtime, 0f, LevelDuration);
-
-        if (Input.GetKeyDown(KeyCode.N))
-            OnLevelEnded?.Invoke();
+        if (music && music.clip && music.clip.frequency > 0)
+            return (double)music.timeSamples / music.clip.frequency;
+        return Time.timeSinceLevelLoadAsDouble;
     }
 }

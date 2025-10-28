@@ -69,8 +69,8 @@ public class PlayerInputTracker : MonoBehaviour
         if (key != "")
         {
             bool success = (key == "Space" && inGreenZone);
-            analytics.LogAction(sessionId, levelNumber, key, success);
-            Debug.Log($"[Analytics] {key} pressed — success={success}");
+            // analytics.LogAction(sessionId, levelNumber, key, success);
+            // Debug.Log($"[Analytics] {key} pressed — success={success}");
         }
     }
 

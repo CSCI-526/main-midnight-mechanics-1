@@ -29,13 +29,13 @@ public class GreenBoxTrigger : MonoBehaviour
         {
             tracker.EnterGreenZone();
             isInside = true;
-            Debug.Log("[Trigger ✅] ENTER zone");
+            //Debug.Log("[Trigger ✅] ENTER zone");
         }
         else if (!overlap && isInside)
         {
             tracker.ExitGreenZone();
             isInside = false;
-            Debug.Log("[Trigger ❌] EXIT zone");
+            //Debug.Log("[Trigger ❌] EXIT zone");
         }
     }
 

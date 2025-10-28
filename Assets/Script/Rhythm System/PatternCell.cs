@@ -3,41 +3,52 @@ using UnityEngine.UI;
 
 public class PatternCell : MonoBehaviour
 {
-    public enum Dir { Up = 0, Down = 1, Left = 2, Right = 3 }
-
-    [Header("UI")]
+    [Header("Refs")]
+    [SerializeField] private RectTransform rect;
     [SerializeField] private Image icon;
 
-    [Header("Sprites by Direction (Up,Down,Left,Right)")]
-    [SerializeField] private Sprite[] normalSprites = new Sprite[4];
-    [SerializeField] private Sprite[] okSprites     = new Sprite[4];
-    [SerializeField] private Sprite[] wrongSprites  = new Sprite[4];
+    [Header("Judge Sprites")]
+    [SerializeField] private Sprite hitSprite;   // 命中后
+    [SerializeField] private Sprite missSprite;  // Miss 后
 
-    private Dir currentDir;
+    private Sprite _initialSprite;
+    private float  _initialScale = 1f;
 
-    public void SetSymbol(Dir d)
+    public RectTransform Rect => rect;
+    public float InitialScale => _initialScale;
+
+    void Awake()
     {
-        currentDir = d;
-        SetDefault();          // 初始显示未完成
-        if (icon) icon.color = Color.white; // 确保不被旧的 tint 影响
+        if (icon) _initialSprite = icon.sprite;
+        if (rect) _initialScale  = rect.localScale.x;
     }
 
-    public void SetDefault() => SetSpriteFrom(normalSprites);
-    public void SetOk()      => SetSpriteFrom(okSprites, fallback: normalSprites);
-    public void SetWrong()   => SetSpriteFrom(wrongSprites, fallback: normalSprites);
-
-    void SetSpriteFrom(Sprite[] set, Sprite[] fallback = null)
+    public bool ValidateSetup(bool log)
     {
-        if (!icon) return;
-        var idx = (int)currentDir;
-
-        Sprite choose = null;
-        if (set != null && idx < set.Length) choose = set[idx];
-        if (!choose && fallback != null && idx < fallback.Length) choose = fallback[idx];
-
-        if (choose) icon.sprite = choose;
+        bool ok = (rect != null) && (icon != null) && (hitSprite != null) && (missSprite != null);
+        if (log && !ok) Debug.LogError("[PatternCell] setup invalid.", this);
+        return ok;
     }
 
-    // 预留：未来做VFX时可在这里触发Animator
-    // public void PlayOkVFX() { animator?.SetTrigger("Ok"); }
+    public void ResetVisual()
+    {
+        if (icon) icon.sprite = _initialSprite;
+        if (rect) rect.localScale = new Vector3(_initialScale, _initialScale, 1f);
+    }
+
+    public void SetOk()
+    {
+        if (icon && hitSprite) icon.sprite = hitSprite;
+    }
+
+    public void SetWrong()
+    {
+        if (icon && missSprite) icon.sprite = missSprite;
+    }
+
+    public void SetScale(float s)
+    {
+        if (!rect) return;
+        rect.localScale = new Vector3(s, s, 1f);
+    }
 }

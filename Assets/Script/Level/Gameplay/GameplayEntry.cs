@@ -3,11 +3,11 @@ using UnityEngine;
 public class GameplayEntry : MonoBehaviour
 {
     [SerializeField] private LevelRunner runner;
-    [SerializeField] private LevelPack fallbackPack;
-    [SerializeField] private SceneFlow sceneFlow;
-    [SerializeField] private ShopUI shopUI;
-    [SerializeField] private ShopPanel shopPanel;
-    [SerializeField] private GoldWallet wallet;
+    [SerializeField] private LevelPack   fallbackPack;
+    [SerializeField] private SceneFlow   sceneFlow;
+    [SerializeField] private ShopUI      shopUI;
+    [SerializeField] private ShopPanel   shopPanel;
+    [SerializeField] private GoldWallet  wallet;
 
     GameSession session;
 
@@ -27,23 +27,54 @@ public class GameplayEntry : MonoBehaviour
 
     void Start()
     {
-        var pack = session ? session.SelectedPack : null;
-        if (!pack) pack = fallbackPack;
+        ApplyStartGoldIfPending();
+        OpenShopThen(() => LoadCurrentLevel());
+    }
 
-        if (pack == null || pack.levels == null || pack.levels.Count == 0)
+    void ApplyStartGoldIfPending()
+    {
+        if (session == null) return;
+
+        int startGold = session.ConsumePendingStartGold(); // 取出并清空
+        if (startGold < 0) return;
+
+        if (!wallet) wallet = FindFirstObjectByType<GoldWallet>(FindObjectsInactive.Include);
+        if (!wallet)
         {
-            Debug.LogError("[GameplayEntry] No LevelPack or empty levels.");
+            Debug.LogWarning("[GameplayEntry] GoldWallet not found in scene.");
             return;
         }
 
-        if (session && session.SelectedPack == null) session.BeginPack(pack);
-        
-        OpenShopThen(() => LoadCurrentLevel());
+        wallet.Set(startGold); // 直接设置起始金币
     }
 
     void LoadCurrentLevel()
     {
-        var level = session ? session.GetCurrentLevel() : (fallbackPack ? fallbackPack.levels[0] : null);
+        // Challenge 优先
+        if (session && session.SelectedLevel)
+        {
+            runner.Apply(session.SelectedLevel);
+            return;
+        }
+
+        // 回退到 Pack（若仍保留）
+        var level = session ? session.GetCurrentLevel()
+                            : (fallbackPack ? (fallbackPack.levels.Count > 0 ? fallbackPack.levels[0] : null) : null);
+
+        if (!level)
+        {
+            var pack = session ? session.SelectedPack : null;
+            if (!pack) pack = fallbackPack;
+
+            if (pack == null || pack.levels == null || pack.levels.Count == 0)
+            {
+                Debug.LogError("[GameplayEntry] No LevelPack or empty levels.");
+                return;
+            }
+            if (session && session.SelectedPack == null) session.BeginPack(pack);
+            level = session.GetCurrentLevel();
+        }
+
         if (!level) { Debug.LogError("[GameplayEntry] Current level is null"); return; }
         runner.Apply(level);
     }
@@ -56,7 +87,16 @@ public class GameplayEntry : MonoBehaviour
             wallet.Add(finished.rewardGold);
             Debug.Log($"[GameplayEntry] Reward +{finished.rewardGold} gold for '{finished.levelName}'.");
         }
-        
+
+        // Challenge：打完回选择界面
+        if (session && session.SelectedLevel)
+        {
+            session.ClearChallenge();
+            if (sceneFlow) sceneFlow.LoadLevelSelector();
+            return;
+        }
+
+        // Pack：原推进
         if (session != null && session.TryAdvanceLevel())
             OpenShopThen(() => LoadCurrentLevel());
         else
