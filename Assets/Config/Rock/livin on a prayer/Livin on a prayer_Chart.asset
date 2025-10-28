@@ -12,14 +12,27 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0cd6d973cf4137844bd25f29f1383e27, type: 3}
   m_Name: Livin on a prayer_Chart
   m_EditorClassIdentifier: 
-  clip: {fileID: 0}
   bpm: 123
   beatsPerBar: 4
-  songOffsetSec: 1
-  defaultLeadTimeSec: 1.5
-  useClipLengthAsLevelDuration: 0
-  manualLevelDurationSec: 248
+  songOffsetSec: 2
+  defaultLeadTimeSec: 2
   bars:
+  - subdivision: 4
+    slots: 00000000000000000000000000000000
+  - subdivision: 4
+    slots: 00000000000000000100000000000000
+  - subdivision: 4
+    slots: 00000000000000000100000000000000
+  - subdivision: 4
+    slots: 00000000000000000100000000000000
+  - subdivision: 4
+    slots: 00000000000000000100000000000000
+  - subdivision: 4
+    slots: 00000000000000000100000000000000
+  - subdivision: 4
+    slots: 00000000000000000100000000000000
+  - subdivision: 4
+    slots: 00000000000000000100000000000000
   - subdivision: 4
     slots: 01000000010000000100000000000000
   - subdivision: 4

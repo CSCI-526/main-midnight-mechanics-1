@@ -8,10 +8,6 @@ public class LevelRunner : MonoBehaviour
     [SerializeField] private PatternSystem pattern;
     [SerializeField] private EnemySpawner  spawner;
 
-    [Header("Timing Adjust")]
-    [SerializeField] private float  leadTimeSecOverride = -1f;
-    [SerializeField] private double globalOffsetSec     = 0.0;
-
     public System.Action OnLevelEnded;
     public System.Action OnLevelApplied;
 
@@ -20,51 +16,57 @@ public class LevelRunner : MonoBehaviour
     public float ElapsedRealtime { get; private set; }
     public float Progress01 => LevelDuration > 0f ? Mathf.Clamp01(ElapsedRealtime / LevelDuration) : 0f;
 
-    RhythmChart chart;
     List<RhythmChart.ChartEvent> timeline;
     int   cursor;
     bool  running;
-    float leadTimeSec;
 
-    void Awake()
-    {
-        if (!pattern) pattern = FindFirstObjectByType<PatternSystem>(FindObjectsInactive.Include);
-    }
+    float  lead;
+    double chartNow;
+    bool   usingAudioTime;
+    float  audioDelayLeft;
+    double audioSyncOffset;
 
-    public void Apply(LevelConfig c)
+    public void Apply(LevelConfig level)
     {
         CleanLevelState();
 
-        Current = c;
-        if (!pattern) { Debug.LogError("[LevelRunner] PatternSystem is null."); return; }
-        if (!c || !c.chart) { Debug.LogError("[LevelRunner] LevelConfig.chart is null."); return; }
+        Current = level;
+        if (!Current || !Current.chart)
+        {
+            Debug.LogError("[LevelRunner] Level 或其 Chart 为空。");
+            return;
+        }
+        if (!pattern) pattern = FindFirstObjectByType<PatternSystem>(FindObjectsInactive.Include);
 
-        chart = c.chart;
         pattern.ResetForNewLevel();
         pattern.EnableChartMode(true);
 
-        timeline   = chart.BuildTimeline();
-        cursor     = 0;
-        leadTimeSec = (leadTimeSecOverride > 0f ? leadTimeSecOverride : chart.defaultLeadTimeSec);
+        timeline = Current.chart.BuildTimeline();
+        cursor   = 0;
 
-        LevelDuration   = chart.GetLevelDurationSec();
+        lead = Mathf.Max(0.01f, Current.chart.defaultLeadTimeSec);
+
+        LevelDuration   = Mathf.Max(1f, Current.levelDurationSeconds);
         ElapsedRealtime = 0f;
+
+        chartNow        = 0.0;
+        usingAudioTime  = false;
+        audioDelayLeft  = Mathf.Max(0f, Current.bgmDelaySec);
+        audioSyncOffset = 0.0;
 
         if (music)
         {
             music.Stop();
+            music.clip         = Current.bgm;
             music.playOnAwake  = false;
             music.loop         = false;
             music.spatialBlend = 0f;
-            music.clip         = chart.clip;
-            if (music.clip) music.Play();
         }
 
         if (spawner)
         {
-            spawner.ConfigureWindow(LevelDuration, c.spawnStartDelay, c.spawnStopEarly);
-            if (c.enemyPrefab) spawner.SetEnemyPrefab(c.enemyPrefab);
-            if (c.spawnInterval > 0f) spawner.SetSpawnInterval(c.spawnInterval);
+            spawner.ApplyFromLevel(Current);
+            spawner.ConfigureWindow(LevelDuration, Current.spawnStartDelay, Current.spawnStopEarly);
         }
 
         running = true;
@@ -76,43 +78,64 @@ public class LevelRunner : MonoBehaviour
         if (!running) return;
 
         ElapsedRealtime = Mathf.Min(ElapsedRealtime + Time.deltaTime, LevelDuration);
-        double now = GetSongTimeSec() + globalOffsetSec;
+
+        if (music && !usingAudioTime)
+        {
+            if (audioDelayLeft > 0f)
+            {
+                audioDelayLeft -= Time.deltaTime;
+                if (audioDelayLeft < 0f) audioDelayLeft = 0f;
+            }
+            else
+            {
+                if (music.clip && !music.isPlaying) music.Play();
+                usingAudioTime  = true;
+                audioSyncOffset = chartNow;
+            }
+        }
+
+        if (usingAudioTime && music && music.clip && music.clip.frequency > 0)
+        {
+            chartNow = (double)music.timeSamples / music.clip.frequency + audioSyncOffset;
+        }
+        else
+        {
+            chartNow += Time.deltaTime;
+        }
 
         while (cursor < (timeline?.Count ?? 0))
         {
             var ev = timeline[cursor];
-            if (ev.tSec <= now + leadTimeSec)
+            if (ev.tSec <= chartNow + lead)
             {
-                if (ev.kind == RhythmChart.NoteKind.Tap)
-                    pattern.EnqueueTap(ev.tSec, leadTimeSec);
+                if (ev.kind == RhythmChart.NoteKind.Double)
+                    pattern.EnqueueDouble(ev.tSec, lead);
                 else
-                    pattern.EnqueueDouble(ev.tSec, leadTimeSec);
-
+                    pattern.EnqueueTap(ev.tSec, lead);
                 cursor++;
             }
             else break;
         }
 
-        pattern.SetChartNow(now);
+        pattern.SetChartNow(chartNow);
 
-        if (now >= (double)LevelDuration)
+        if (ElapsedRealtime >= LevelDuration)
         {
             running = false;
             OnLevelEnded?.Invoke();
         }
-
-        if (Input.GetKeyDown(KeyCode.N))
-            OnLevelEnded?.Invoke();
     }
 
     public void AbortLevel()
     {
         running = false;
         if (music) music.Stop();
+
         if (spawner) spawner.StopAndReset();
         Enemy.KillAll();
-        var bullets = FindObjectsByType<Bullet>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        var bullets = FindObjectsOfType<Bullet>();
         foreach (var b in bullets) if (b) Destroy(b.gameObject);
+
         if (pattern) pattern.ResetForNewLevel();
     }
 
@@ -120,15 +143,8 @@ public class LevelRunner : MonoBehaviour
     {
         if (spawner) spawner.StopAndReset();
         Enemy.KillAll();
-        var bullets = FindObjectsByType<Bullet>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        var bullets = FindObjectsOfType<Bullet>();
         foreach (var b in bullets) if (b) Destroy(b.gameObject);
         if (pattern) pattern.ResetForNewLevel();
-    }
-
-    double GetSongTimeSec()
-    {
-        if (music && music.clip && music.clip.frequency > 0)
-            return (double)music.timeSamples / music.clip.frequency;
-        return Time.timeSinceLevelLoadAsDouble;
     }
 }

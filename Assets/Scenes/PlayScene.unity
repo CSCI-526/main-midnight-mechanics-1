@@ -1658,12 +1658,12 @@ MonoBehaviour:
   prewarmTap: 12
   prewarmDouble: 6
   spawnLeftPaddingPx: 40
-  onHitFreezeSeconds: 0.05
-  onPerfectScaleUpFactor: 1.3
+  onHitFreezeSeconds: 0
+  onPerfectScaleUpFactor: 0
   onGoodScaleUpFactor: 0
-  onHitScaleUpSeconds: 0.1
-  onMissFreezeSeconds: 0.05
-  onMissScaleDownSeconds: 0.1
+  onHitScaleUpSeconds: 0
+  onMissFreezeSeconds: 0
+  onMissScaleDownSeconds: 0
   doubleSecondGapSec: 0.08
   judgeLabel: {fileID: 588669927}
   sfxSource: {fileID: 2145422199}
@@ -4060,8 +4060,6 @@ MonoBehaviour:
   music: {fileID: 2145422199}
   pattern: {fileID: 385548354}
   spawner: {fileID: 1734109346}
-  leadTimeSecOverride: -1
-  globalOffsetSec: 0
 --- !u!4 &1129485090
 Transform:
   m_ObjectHideFlags: 0

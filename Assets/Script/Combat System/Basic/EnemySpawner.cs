@@ -4,23 +4,23 @@ public class EnemySpawner : MonoBehaviour
 {
     [Header("Areas (World, BoxCollider2D)")]
     [SerializeField] private BoxCollider2D spawnArea;  // 生成框（外框）
-    [SerializeField] private BoxCollider2D safeArea;   // 安全框（内框）
+    [SerializeField] private BoxCollider2D safeArea;   // 安全框（内框，不生成）
 
     [Header("Spawn Params")]
-    [SerializeField] private Enemy enemyPrefab;        // 可由 LevelRunner 注入
+    [SerializeField] private Enemy enemyPrefab;        // 将由 LevelRunner/LevelConfig 注入；也可手填
     [SerializeField] private float spawnInterval = 1.5f;
     [SerializeField] private float moveSpeed  = 1.8f;
     [SerializeField] private Transform player;
 
-    // —— 刷怪窗口控制 —— 
-    private float levelDuration;
-    private float startDelay;
-    private float stopBeforeEnd;
-    private float elapsed;
-    private bool  windowActive;
+    // 窗口控制
+    float levelDuration;
+    float startDelay;
+    float stopBeforeEnd;
+    float elapsed;
+    bool  windowActive;
 
-    private float timer;
-    private bool warnedMissingPrefab = false;
+    float timer;
+    bool  warnedMissingPrefab = false;
 
     void Start()
     {
@@ -51,7 +51,7 @@ public class EnemySpawner : MonoBehaviour
         {
             if (!warnedMissingPrefab)
             {
-                Debug.LogWarning("[Spawner] enemyPrefab is NULL. Waiting for LevelRunner injection…", this);
+                Debug.LogWarning("[Spawner] enemyPrefab is NULL. Assign in LevelConfig or Inspector.", this);
                 warnedMissingPrefab = true;
             }
             timer = 0.25f;
@@ -65,10 +65,8 @@ public class EnemySpawner : MonoBehaviour
             return;
         }
 
-        Vector2 pos;
-        if (!TrySampleSpawnPosition(out pos))
+        if (!TrySampleSpawnPosition(out var pos))
         {
-            // 配置异常（比如 safeArea 几乎占满 spawnArea），暂缓重试
             timer = 0.5f;
             return;
         }
@@ -84,91 +82,57 @@ public class EnemySpawner : MonoBehaviour
     bool TrySampleSpawnPosition(out Vector2 pos)
     {
         var sOk = TryGetRect(spawnArea, out Rect sRect);
-        if (!sOk || sRect.width <= 0f || sRect.height <= 0f)
-        {
-            pos = default;
-            return false;
-        }
+        if (!sOk || sRect.width <= 0f || sRect.height <= 0f) { pos = default; return false; }
 
         Rect rRect = default;
         bool hasSafe = safeArea && TryGetRect(safeArea, out rRect);
 
-        // 若没有安全框，直接在生成框内采样
-        if (!hasSafe || rRect.width <= 0f || rRect.height <= 0f)
-        {
-            pos = SampleInRect(sRect);
-            return true;
-        }
+        if (!hasSafe || rRect.width <= 0f || rRect.height <= 0f) { pos = SampleInRect(sRect); return true; }
 
-        // 确保安全框在生成框内，若超界取交集
         rRect = IntersectRect(sRect, rRect);
-        if (rRect.width <= 0f || rRect.height <= 0f)
-        {
-            // 交集为空 => 等同于没有安全框
-            pos = SampleInRect(sRect);
-            return true;
-        }
+        if (rRect.width <= 0f || rRect.height <= 0f) { pos = SampleInRect(sRect); return true; }
 
-        // 计算四个条带（spawn - safe）的面积与权重
-        // 上下条：宽 = sRect.width，高 = 上/下剩余
-        float topH    = Mathf.Max(0f, (sRect.yMax - rRect.yMax));
-        float botH    = Mathf.Max(0f, (rRect.yMin - sRect.yMin));
-        float sideH   = Mathf.Max(0f, rRect.height);
-        float leftW   = Mathf.Max(0f, (rRect.xMin - sRect.xMin));
-        float rightW  = Mathf.Max(0f, (sRect.xMax - rRect.xMax));
+        float topH   = Mathf.Max(0f, (sRect.yMax - rRect.yMax));
+        float botH   = Mathf.Max(0f, (rRect.yMin - sRect.yMin));
+        float sideH  = Mathf.Max(0f, rRect.height);
+        float leftW  = Mathf.Max(0f, (rRect.xMin - sRect.xMin));
+        float rightW = Mathf.Max(0f, (sRect.xMax - rRect.xMax));
 
-        float areaTop    = sRect.width * topH;
-        float areaBot    = sRect.width * botH;
-        float areaLeft   = leftW * sideH;
-        float areaRight  = rightW * sideH;
+        float areaTop   = sRect.width * topH;
+        float areaBot   = sRect.width * botH;
+        float areaLeft  = leftW * sideH;
+        float areaRight = rightW * sideH;
 
-        float totalArea = areaTop + areaBot + areaLeft + areaRight;
-        if (totalArea <= 0f)
-        {
-            // 安全框≈生成框，几乎没有可用区域
-            pos = default;
-            return false;
-        }
+        float total = areaTop + areaBot + areaLeft + areaRight;
+        if (total <= 0f) { pos = default; return false; }
 
-        float pick = Random.value * totalArea;
+        float pick = Random.value * total;
         if (pick < areaTop)
         {
-            // 顶条：x ∈ [s.xMin, s.xMax], y ∈ [r.yMax, s.yMax]
-            float x = Random.Range(sRect.xMin, sRect.xMax);
-            float y = Random.Range(rRect.yMax, sRect.yMax);
-            pos = new Vector2(x, y);
+            pos = new Vector2(Random.Range(sRect.xMin, sRect.xMax), Random.Range(rRect.yMax, sRect.yMax));
             return true;
         }
         pick -= areaTop;
 
         if (pick < areaBot)
         {
-            // 底条：x ∈ [s.xMin, s.xMax], y ∈ [s.yMin, r.yMin]
-            float x = Random.Range(sRect.xMin, sRect.xMax);
-            float y = Random.Range(sRect.yMin, rRect.yMin);
-            pos = new Vector2(x, y);
+            pos = new Vector2(Random.Range(sRect.xMin, sRect.xMax), Random.Range(sRect.yMin, rRect.yMin));
             return true;
         }
         pick -= areaBot;
 
         if (pick < areaLeft)
         {
-            // 左条：x ∈ [s.xMin, r.xMin], y ∈ [r.yMin, r.yMax]
-            float x = Random.Range(sRect.xMin, rRect.xMin);
-            float y = Random.Range(rRect.yMin, rRect.yMax);
-            pos = new Vector2(x, y);
+            pos = new Vector2(Random.Range(sRect.xMin, rRect.xMin), Random.Range(rRect.yMin, rRect.yMax));
             return true;
         }
-        // 右条：x ∈ [r.xMax, s.xMax], y ∈ [r.yMin, r.yMax]
-        float rx = Random.Range(rRect.xMax, sRect.xMax);
-        float ry = Random.Range(rRect.yMin, rRect.yMax);
-        pos = new Vector2(rx, ry);
+
+        pos = new Vector2(Random.Range(rRect.xMax, sRect.xMax), Random.Range(rRect.yMin, rRect.yMax));
         return true;
     }
 
     static bool TryGetRect(BoxCollider2D col, out Rect rect)
     {
-        // 使用 world AABB，Z 忽略
         var b = col.bounds;
         rect = new Rect(b.min.x, b.min.y, b.size.x, b.size.y);
         return true;
@@ -186,33 +150,20 @@ public class EnemySpawner : MonoBehaviour
 
     static Vector2 SampleInRect(Rect r)
     {
-        float x = Random.Range(r.xMin, r.xMax);
-        float y = Random.Range(r.yMin, r.yMax);
-        return new Vector2(x, y);
+        return new Vector2(Random.Range(r.xMin, r.xMax), Random.Range(r.yMin, r.yMax));
     }
 
-    // —— LevelRunner 注入基础参数 —— 
-    public void SetEnemyPrefab(Enemy e)
-    {
-        enemyPrefab = e;
-        warnedMissingPrefab = false;
-    }
-
-    public void SetSpawnInterval(float s)
-    {
-        spawnInterval = Mathf.Max(0.05f, s);
-    }
-
+    // LevelConfig 注入
     public void ApplyFromLevel(LevelConfig c)
     {
         if (!c) return;
-        SetEnemyPrefab(c.enemyPrefab);
-        SetSpawnInterval(c.spawnInterval);
-        string prefabName = (enemyPrefab != null) ? enemyPrefab.name : "<null>";
-        Debug.Log($"[Spawner] ApplyFromLevel: prefab={prefabName}, interval={spawnInterval}", this);
+        enemyPrefab   = c.enemyPrefab;
+        spawnInterval = Mathf.Max(0.05f, c.spawnInterval);
+        warnedMissingPrefab = false;
+
+        Debug.Log($"[Spawner] ApplyFromLevel: prefab={(enemyPrefab? enemyPrefab.name : "<null>")}, interval={spawnInterval}", this);
     }
 
-    // —— 刷怪窗口：LevelRunner 在每关开始时调用 —— 
     public void ConfigureWindow(float levelDur, float startDelaySec, float stopEarlySec)
     {
         levelDuration = Mathf.Max(0f, levelDur);
@@ -226,7 +177,6 @@ public class EnemySpawner : MonoBehaviour
         Debug.Log($"[Spawner] Window configured: startDelay={startDelay}s, stopEarly={stopBeforeEnd}s, levelDur={levelDuration}s", this);
     }
 
-    // —— 被 LevelRunner 在关卡切换时调用，重置状态 —— 
     public void StopAndReset()
     {
         windowActive = false;
@@ -237,7 +187,6 @@ public class EnemySpawner : MonoBehaviour
 #if UNITY_EDITOR
     void OnDrawGizmosSelected()
     {
-        // 可视化两个框
         if (spawnArea)
         {
             var b = spawnArea.bounds;

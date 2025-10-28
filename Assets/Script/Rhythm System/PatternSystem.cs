@@ -14,28 +14,25 @@ public class PatternSystem : MonoBehaviour
     [SerializeField] private RectTransform patternRow;
 
     [Header("Prefabs")]
-    [SerializeField] private PatternCell tapPrefab;      // 单击音符的预制
-    [SerializeField] private PatternCell doublePrefab;   // 双键音符的预制
+    [SerializeField] private PatternCell tapPrefab;      // 单击音符
+    [SerializeField] private PatternCell doublePrefab;   // 双键音符
 
     [Header("Pool Prewarm")]
     [SerializeField] private int prewarmTap = 12;
     [SerializeField] private int prewarmDouble = 6;
 
     [Header("Visual Spawn")]
-    [SerializeField] private float spawnLeftPaddingPx = 40f; // 从左侧屏外进场的额外像素
+    [SerializeField] private float spawnLeftPaddingPx = 40f;
 
-    [Header("Hit FX")]
-    [SerializeField] private float onHitFreezeSeconds     = 0.06f;
-    [SerializeField] private float onPerfectScaleUpFactor = 1.25f;  // 相对“基础尺寸”（Prefab 的初始缩放）
-    [SerializeField] private float onGoodScaleUpFactor    = 1.12f;
-    [SerializeField] private float onHitScaleUpSeconds    = 0.08f;
-
-    [Header("Miss FX")]
-    [SerializeField] private float onMissFreezeSeconds    = 0.04f;
-    [SerializeField] private float onMissScaleDownSeconds = 0.10f;
+    [Header("Judge FX (Simple)")]
+    [SerializeField, Tooltip("命中放大的倍数（相对Prefab初始缩放）")]
+    private float hitScaleFactor = 1.2f;
+    [SerializeField, Tooltip("命中/失误缩放动画时长（秒）")]
+    private float scaleSeconds = 0.10f;
 
     [Header("Double Settings")]
-    [SerializeField] private float doubleSecondGapSec = 0.08f; // 第二键需不同键，且在该间隔内
+    [SerializeField, Tooltip("双键需要在该间隔内按下第二键，且与第一键不同")]
+    private float doubleSecondGapSec = 0.08f;
 
     [Header("Debug UI (TMP)")]
     [SerializeField] private TMP_Text judgeLabel;
@@ -45,7 +42,7 @@ public class PatternSystem : MonoBehaviour
     [SerializeField] private AudioClip   keyPressSfx;
     [SerializeField, Range(0f,1f)] private float keyPressSfxVolume = 1f;
 
-    // —— 由 LevelRunner / RhythmChartPlayer 驱动 ——
+    // —— 外部驱动 —— 
     bool   chartMode  = true;
     double chartNowSec = 0.0;
 
@@ -57,10 +54,11 @@ public class PatternSystem : MonoBehaviour
         public NoteType type;
         public PatternCell widget;
 
-        public double tStartSec;   // 命中时刻（秒）
-        public float  leadTimeSec; // 飞行时长（秒）
+        public double tStartSec;    // 命中时刻
+        public float  leadTimeSec;  // 飞行时长
+        public double departSec;    // 出发时刻 = tStartSec - leadTimeSec
 
-        public float  baseScale;   // 以 Prefab 初始缩放为基线（动画相对它缩放）
+        public float  baseScale;    // Prefab 初始缩放
 
         public bool      judged;
         public JudgeKind judgedKind;
@@ -70,15 +68,12 @@ public class PatternSystem : MonoBehaviour
         public KeyCode  dblFirstKey;
         public float    dblExpireU;
 
-        // 命中/失误后的冻结与动画
-        public float freezeUntilU;
+        // 动画
         public bool  animStarted;
         public float animT;
     }
 
     readonly List<Note> _notes = new();
-
-    // 两套对象池
     readonly Queue<PatternCell> _poolTap    = new();
     readonly Queue<PatternCell> _poolDouble = new();
 
@@ -94,7 +89,7 @@ public class PatternSystem : MonoBehaviour
         RecalcInnerHalf();
         PrewarmPools();
 
-        // 校验基本设置
+        // 校验
         if (!tapPrefab || !doublePrefab)
         {
             Debug.LogError("[PatternSystem] tapPrefab / doublePrefab 未设置。", this);
@@ -115,11 +110,11 @@ public class PatternSystem : MonoBehaviour
     void Update()
     {
         if (!enabled || !chartMode) return;
+        if (!ZonesReady()) return;                   // 避免首帧布局未就绪
 
         EnsurePatternRowMatchesTrack();
         RecalcInnerHalf();
 
-        // 收集可用按键；有按键则播按键音（可关/不填则无声）
         var pressed = GetPlayableKeysDownThisFrame();
         if (pressed.Count > 0) PlayKeyPressSfx();
 
@@ -131,33 +126,36 @@ public class PatternSystem : MonoBehaviour
         for (int i = 0; i < _notes.Count; i++)
         {
             var n = _notes[i];
-            if (!n.widget || n.judged) continue;
+            if (!n.widget || n.judged) continue;     // 判定后立即停止移动
 
-            // 从左到命中：t01=0→1
-            float t01 = 1f - (float)((n.tStartSec - chartNowSec) / n.leadTimeSec);
-            float x   = Mathf.LerpUnclamped(spawnLeftX, centerRowX, t01);
+            // 平滑推进
+            float t01 = 0f;
+            if (n.leadTimeSec > 0f)
+                t01 = Mathf.Clamp01((float)((chartNowSec - n.departSec) / n.leadTimeSec));
+
+            float x = Mathf.Lerp(spawnLeftX, centerRowX, t01);
             SetX_Unclamped(n.widget.Rect, x);
 
-            // 若已过右侧 Miss 区边界且时间也过了命中时刻 -> 自动 Miss
+            // 右侧 Miss 自动判定 -> 立即进入缩放动画
             float cxTrack = GetRectCenterXInTrack(n.widget.Rect);
             if (cxTrack > missRightT && chartNowSec > n.tStartSec)
             {
-                n.judged       = true;
-                n.judgedKind   = JudgeKind.Miss;
-                n.freezeUntilU = Time.unscaledTime + onMissFreezeSeconds;
-                n.animStarted  = false;
-                n.animT        = 0f;
+                n.judged     = true;
+                n.judgedKind = JudgeKind.Miss;
                 n.widget.SetWrong();
-                _notes[i] = n;
                 SetLabel("MISS");
+
+                n.animStarted = false;   // 立刻进入动画（无冻结）
+                n.animT = 0f;
+                _notes[i] = n;
             }
         }
 
-        // 输入：每个按键逐个处理（Double 优先）
+        // 输入：Double 优先
         for (int i = 0; i < pressed.Count; i++)
             HandleKey(pressed[i]);
 
-        // 命中/失误的动画与回收
+        // 命中/失误动画
         AnimateAndCull();
     }
 
@@ -170,21 +168,24 @@ public class PatternSystem : MonoBehaviour
         var w = GetTapCell();
         w.transform.SetParent(patternRow, false);
         w.gameObject.SetActive(true);
-        w.ResetVisual();                          // 恢复 Prefab 默认图与缩放
+        w.ResetVisual();
         SetX_Unclamped(w.Rect, GetSpawnLeftX());
+
+        float lead = Mathf.Max(0.01f, leadTimeSec);
 
         _notes.Add(new Note
         {
-            type       = NoteType.Tap,
-            widget     = w,
-            tStartSec  = hitTimeSec,
-            leadTimeSec= Mathf.Max(0.01f, leadTimeSec),
+            type        = NoteType.Tap,
+            widget      = w,
+            tStartSec   = hitTimeSec,
+            leadTimeSec = lead,
+            departSec   = hitTimeSec - lead,
 
-            baseScale  = w.InitialScale,
+            baseScale   = w.InitialScale,
 
             judged = false, judgedKind = JudgeKind.None,
             dblAwaiting = false, dblFirstKey = KeyCode.None, dblExpireU = 0f,
-            freezeUntilU = 0f, animStarted = false, animT = 0f
+            animStarted = false, animT = 0f
         });
     }
 
@@ -193,95 +194,85 @@ public class PatternSystem : MonoBehaviour
         var w = GetDoubleCell();
         w.transform.SetParent(patternRow, false);
         w.gameObject.SetActive(true);
-        w.ResetVisual();                          // 使用 Double Prefab 的默认图与缩放
+        w.ResetVisual();
         SetX_Unclamped(w.Rect, GetSpawnLeftX());
+
+        float lead = Mathf.Max(0.01f, leadTimeSec);
 
         _notes.Add(new Note
         {
-            type       = NoteType.Double,
-            widget     = w,
-            tStartSec  = hitTimeSec,
-            leadTimeSec= Mathf.Max(0.01f, leadTimeSec),
+            type        = NoteType.Double,
+            widget      = w,
+            tStartSec   = hitTimeSec,
+            leadTimeSec = lead,
+            departSec   = hitTimeSec - lead,
 
-            baseScale  = w.InitialScale,
+            baseScale   = w.InitialScale,
 
             judged = false, judgedKind = JudgeKind.None,
             dblAwaiting = false, dblFirstKey = KeyCode.None, dblExpireU = 0f,
-            freezeUntilU = 0f, animStarted = false, animT = 0f
+            animStarted = false, animT = 0f
         });
     }
 
-    // ===== 输入判定 =====
+    // ===== 输入判定（无冻结，立即进入缩放） =====
     void HandleKey(KeyCode key)
     {
-        // Double 优先：当前按键只消耗一个音符，取落在判定区里“最右侧”的 Double
+        // Double 优先
         int iDouble = PickRightmostInZones(NoteType.Double, out JudgeKind zoneKindDouble);
         if (iDouble >= 0)
         {
             var n = _notes[iDouble];
             if (!n.dblAwaiting)
             {
-                // 记录第一键
                 n.dblAwaiting = true;
                 n.dblFirstKey = key;
                 n.dblExpireU  = Time.unscaledTime + doubleSecondGapSec;
                 _notes[iDouble] = n;
                 SetLabel("DOUBLE…");
-                return; // 本次按键被消费
+                return;
             }
             else
             {
-                // 第二键：不同键、限时、仍在判定区
                 if (key != n.dblFirstKey && Time.unscaledTime <= n.dblExpireU && IsNoteInAnyZone(iDouble))
                 {
                     n.judged = true;
                     n.judgedKind = zoneKindDouble == JudgeKind.Perfect ? JudgeKind.Perfect :
                                    zoneKindDouble == JudgeKind.Good    ? JudgeKind.Good    : JudgeKind.Miss;
-                    if (n.judgedKind == JudgeKind.Miss)
-                    {
-                        n.freezeUntilU = Time.unscaledTime + onMissFreezeSeconds;
-                        n.widget.SetWrong();
-                        SetLabel("MISS");
-                    }
-                    else
-                    {
-                        n.freezeUntilU = Time.unscaledTime + onHitFreezeSeconds;
-                        n.widget.SetOk();
-                        SetLabel(n.judgedKind == JudgeKind.Perfect ? "PERFECT (2x)" : "GOOD (2x)");
-                        HitJudge.RaiseBasicHit();
-                    }
-                    n.animStarted = false; n.animT = 0f;
+
+                    if (n.judgedKind == JudgeKind.Miss) n.widget.SetWrong();
+                    else                                 n.widget.SetOk();
+
+                    SetLabel(n.judgedKind == JudgeKind.Miss ? "MISS"
+                         : (n.judgedKind == JudgeKind.Perfect ? "PERFECT (2x)" : "GOOD (2x)"));
+                    if (n.judgedKind != JudgeKind.Miss) HitJudge.RaiseBasicHit();
+
+                    // 立即进入缩放动画
+                    n.animStarted = false;
+                    n.animT = 0f;
                     _notes[iDouble] = n;
-                    return; // 本次按键被消费
+                    return;
                 }
-                // 第二键失败：不立刻 Miss，留给右侧越界或后续输入；继续尝试 Tap
             }
         }
 
-        // Tap：取最右侧
+        // Tap
         int iTap = PickRightmostInZones(NoteType.Tap, out JudgeKind zoneKindTap);
         if (iTap >= 0)
         {
             var hit = _notes[iTap];
             hit.judged = true;
+            hit.judgedKind = zoneKindTap;
 
-            if (zoneKindTap == JudgeKind.Miss)
-            {
-                hit.judgedKind   = JudgeKind.Miss;
-                hit.freezeUntilU = Time.unscaledTime + onMissFreezeSeconds;
-                hit.widget.SetWrong();
-                SetLabel("MISS");
-            }
-            else
-            {
-                hit.judgedKind   = zoneKindTap;
-                hit.freezeUntilU = Time.unscaledTime + onHitFreezeSeconds;
-                hit.widget.SetOk();
-                SetLabel(zoneKindTap == JudgeKind.Perfect ? "PERFECT" : "GOOD");
-                HitJudge.RaiseBasicHit();
-            }
+            if (zoneKindTap == JudgeKind.Miss) hit.widget.SetWrong();
+            else { hit.widget.SetOk(); HitJudge.RaiseBasicHit(); }
 
-            hit.animStarted = false; hit.animT = 0f;
+            SetLabel(zoneKindTap == JudgeKind.Miss ? "MISS"
+                 : (zoneKindTap == JudgeKind.Perfect ? "PERFECT" : "GOOD"));
+
+            // 立即进入缩放动画
+            hit.animStarted = false;
+            hit.animT = 0f;
             _notes[iTap] = hit;
         }
     }
@@ -318,18 +309,14 @@ public class PatternSystem : MonoBehaviour
         return InsideZoneXInTrack(cx, zonePerfect) || InsideZoneXInTrack(cx, zoneGood) || InsideZoneXInTrack(cx, zoneMiss);
     }
 
-    // ===== 动画 / 回收（以 baseScale 为基线） =====
+    // ===== 动画 / 回收：判定即刻开始缩放 =====
     void AnimateAndCull()
     {
-        float nowU = Time.unscaledTime;
-
         for (int i = _notes.Count - 1; i >= 0; i--)
         {
             var n = _notes[i];
             if (n.widget == null) { _notes.RemoveAt(i); continue; }
             if (!n.judged) continue;
-
-            if (nowU < n.freezeUntilU) continue;
 
             if (!n.animStarted)
             {
@@ -340,25 +327,28 @@ public class PatternSystem : MonoBehaviour
             }
 
             n.animT += Time.unscaledDeltaTime;
+            float t01 = Mathf.Clamp01(n.animT / Mathf.Max(0.0001f, scaleSeconds));
 
             if (n.judgedKind == JudgeKind.Miss)
             {
-                float t01 = Mathf.Clamp01(n.animT / Mathf.Max(0.0001f, onMissScaleDownSeconds));
-                float s   = Mathf.Lerp(n.baseScale, 0f, t01);
+                float s = Mathf.Lerp(n.baseScale, 0f, t01);
                 n.widget.SetScale(s);
-                if (t01 >= 1f) { ReturnCell(n.widget, n.type); _notes.RemoveAt(i); }
-                else _notes[i] = n;
             }
             else
             {
-                float up     = Mathf.Max(0.0001f, onHitScaleUpSeconds);
-                float factor = (n.judgedKind == JudgeKind.Perfect) ? onPerfectScaleUpFactor : onGoodScaleUpFactor;
-                float target = n.baseScale * factor;
-                float t01    = Mathf.Clamp01(n.animT / up);
-                float s      = Mathf.Lerp(n.baseScale, target, t01);
+                float target = n.baseScale * Mathf.Max(1f, hitScaleFactor);
+                float s = Mathf.Lerp(n.baseScale, target, t01);
                 n.widget.SetScale(s);
-                if (t01 >= 1f) { ReturnCell(n.widget, n.type); _notes.RemoveAt(i); }
-                else _notes[i] = n;
+            }
+
+            if (t01 >= 1f)
+            {
+                ReturnCell(n.widget, n.type);
+                _notes.RemoveAt(i);
+            }
+            else
+            {
+                _notes[i] = n;
             }
         }
     }
@@ -394,6 +384,7 @@ public class PatternSystem : MonoBehaviour
         }
         return Instantiate(tapPrefab);
     }
+
     PatternCell GetDoubleCell()
     {
         if (_poolDouble.Count > 0)
@@ -436,7 +427,7 @@ public class PatternSystem : MonoBehaviour
     List<KeyCode> GetPlayableKeysDownThisFrame()
     {
         var r = new List<KeyCode>(4);
-        if (Input.GetKeyDown(KeyCode.Escape)) return r; // 忽略 ESC
+        if (Input.GetKeyDown(KeyCode.Escape)) return r;
         for (int i = 0; i < sPlayableKeys.Length; i++)
             if (Input.GetKeyDown(sPlayableKeys[i]))
                 r.Add(sPlayableKeys[i]);
@@ -502,7 +493,6 @@ public class PatternSystem : MonoBehaviour
         float rowHalf = rowW * 0.5f;
         float radius  = 0f;
 
-        // 用 Tap 或 Double 的 Rect 宽估半径，避免为 0
         var probe = tapPrefab ? tapPrefab.GetComponent<RectTransform>() :
                    (doublePrefab ? doublePrefab.GetComponent<RectTransform>() : null);
         if (probe) radius = Mathf.Abs(probe.rect.width) * 0.5f;
@@ -528,6 +518,19 @@ public class PatternSystem : MonoBehaviour
     void SetLabel(string s)
     {
         if (judgeLabel) judgeLabel.text = s;
+    }
+
+    bool ZonesReady()
+    {
+        if (!trackRect || trackRect.rect.width <= 1f) return false;
+        return ZoneHasWidth(zonePerfect) && ZoneHasWidth(zoneGood) && ZoneHasWidth(zoneMiss);
+    }
+
+    bool ZoneHasWidth(RectTransform z)
+    {
+        if (!z) return false;
+        GetZoneBoundsInTrack(z, out float l, out float r);
+        return (r - l) > 1f;
     }
 
     public void ResetForNewLevel()
