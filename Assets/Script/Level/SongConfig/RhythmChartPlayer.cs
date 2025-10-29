@@ -4,59 +4,66 @@ using UnityEngine;
 public class RhythmChartPlayer : MonoBehaviour
 {
     [Header("Refs")]
-    public LevelConfig level;       // 从这里拿 chart / bgm / duration / bgmDelay
-    public AudioSource music;       // 可空：则用游戏时钟
-    public PatternSystem pattern;
-    public LevelRunner levelRunner; // 可空：用于收尾回调
-
-    [Header("Playback")]
-    public bool autoPlayMusic = true;
-    public bool endLevelWhenSongEnds = true;
+    [SerializeField] private RhythmChart   chart;
+    [SerializeField] private PatternSystem pattern;
+    [SerializeField] private AudioSource   music;     // 仅播放BGM；计时走DSP
 
     [Header("Scheduling")]
-    [Tooltip("若 < 0 则使用 level.chart.defaultLeadTimeSec")]
-    public float leadTimeSecOverride = -1f;
+    [Tooltip("若 < 0 则使用 chart.defaultLeadTimeSec")]
+    [SerializeField] private float leadTimeSecOverride = -1f;
 
-    [Header("Latency")]
-    [Tooltip("整体偏移(秒)，>0=更晚，<0=更早")]
-    public double globalOffsetSec = 0.0;
+    [Header("Music Delay")]
+    [SerializeField] private float musicDelaySec = 0f;
+    [SerializeField] private bool  autoPlayMusic = true;
+
+    [Header("End Condition")]
+    [SerializeField] private float tailSeconds = 1.0f;
+    [SerializeField] private bool  stopMusicOnEnd = false;
+
+    public System.Action OnPlaybackEnded;
 
     List<RhythmChart.ChartEvent> timeline;
-    RhythmChart chart;
-    int cursor;
-    bool running;
-    float lead;
-    double levelEndTime;
+    int    cursor;
+    bool   running;
+
+    float  lead;                // 可视飞行时间
+    double chartStartDsp;       // 谱面起点（DSP）
+    double musicStartDsp;       // BGM 起播（DSP）
+    double lastEventTime;       // 最后一颗音符命中时刻（tSec）
 
     void Awake()
     {
-#if UNITY_6000_0_OR_NEWER
         if (!pattern) pattern = FindFirstObjectByType<PatternSystem>(FindObjectsInactive.Include);
-#else
-        if (!pattern) pattern = FindObjectOfType<PatternSystem>();
-#endif
         if (pattern) pattern.EnableChartMode(true);
     }
 
     void Start()
     {
-        if (!level || !level.chart || !pattern) { running = false; return; }
-
-        chart       = level.chart;
-        timeline    = chart.BuildTimeline();
-        cursor      = 0;
-        lead        = (leadTimeSecOverride > 0f ? leadTimeSecOverride : chart.defaultLeadTimeSec);
-        levelEndTime= Mathf.Max(1f, level.levelDurationSeconds);
-
-        if (autoPlayMusic && level.bgm && music)
+        if (!chart || !pattern)
         {
-            music.Stop();
-            music.clip = level.bgm;
-            music.time = 0f;
-            // 仅延迟音乐，不改变谱面推进
-            music.PlayDelayed(Mathf.Max(0f, level.bgmDelaySec));
+            running = false;
+            Debug.LogError("[RhythmChartPlayer] Missing chart or pattern.", this);
+            return;
         }
 
+        timeline = chart.BuildTimeline();
+        cursor   = 0;
+        lead     = (leadTimeSecOverride > 0f ? leadTimeSecOverride : chart.defaultLeadTimeSec);
+
+        lastEventTime = (timeline.Count > 0) ? timeline[timeline.Count - 1].tSec : 0.0;
+
+        // DSP 对齐
+        double dspNow   = AudioSettings.dspTime;
+        chartStartDsp   = dspNow;
+        musicStartDsp   = chartStartDsp + Mathf.Max(0f, musicDelaySec);
+
+        if (autoPlayMusic && music && music.clip)
+        {
+            music.Stop();
+            music.PlayScheduled(musicStartDsp);
+        }
+
+        pattern.ResetForNewLevel();
         running = true;
     }
 
@@ -64,40 +71,45 @@ public class RhythmChartPlayer : MonoBehaviour
     {
         if (!running) return;
 
-        double now = GetSongTimeSec() + globalOffsetSec;
+        // 谱面时钟（DSP）
+        double chartNow = AudioSettings.dspTime - chartStartDsp;
+        if (chartNow < 0.0) chartNow = 0.0;
 
         // 投喂事件
         while (cursor < (timeline?.Count ?? 0))
         {
             var ev = timeline[cursor];
-            if (ev.tSec <= now + lead)
+            if (ev.tSec <= chartNow + lead)
             {
-                if (ev.kind == RhythmChart.NoteKind.Tap)
-                    pattern.EnqueueTap(ev.tSec, lead);
-                else
+                if (ev.kind == RhythmChart.NoteKind.Double)
                     pattern.EnqueueDouble(ev.tSec, lead);
-
+                else
+                    pattern.EnqueueTap(ev.tSec, lead);
                 cursor++;
             }
             else break;
         }
 
-        pattern.SetChartNow(now);
+        // 驱动可视
+        pattern.SetChartNow(chartNow);
 
-        if (endLevelWhenSongEnds && now >= levelEndTime)
+        // 结束：所有事件投喂完 + 尾巴
+        if (cursor >= (timeline?.Count ?? 0) && chartNow >= (lastEventTime + tailSeconds))
         {
             running = false;
-            if (levelRunner) levelRunner.OnLevelEnded?.Invoke();
+            if (stopMusicOnEnd && music) music.Stop();
+            OnPlaybackEnded?.Invoke();
         }
     }
 
-    double GetSongTimeSec()
+    public void StopPlayback()
     {
-        // 有音乐就用音频时钟；PlayDelayed 不影响 timeSamples 起点
-        if (music && music.clip && music.clip.frequency > 0)
-            return (double)music.timeSamples / music.clip.frequency;
+        running = false;
+        if (stopMusicOnEnd && music) music.Stop();
+    }
 
-        // 没有音乐就用游戏时钟（仅测试）
-        return Time.timeSinceLevelLoadAsDouble;
+    public void Restart()
+    {
+        Start(); // 简易重启
     }
 }

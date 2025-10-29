@@ -12,6 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0e176666bfccce44a826a5ec8cb9741c, type: 3}
   m_Name: LP_Livin on a prayer
   m_EditorClassIdentifier: 
-  packName: Remix
+  packName: Libin on a prayer
   levels:
   - {fileID: 11400000, guid: 90d75797f398019459119d923589032e, type: 2}
+  challengeStartGold: 120

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;      // ★ 新增：要用 Image
 using TMPro;
 
 public class PatternSystem : MonoBehaviour
@@ -42,6 +43,17 @@ public class PatternSystem : MonoBehaviour
     [SerializeField] private AudioClip   keyPressSfx;
     [SerializeField, Range(0f,1f)] private float keyPressSfxVolume = 1f;
 
+    // === Rhythm Bar 闪色 ===
+    [Header("Rhythm Bar Flash")]
+    [SerializeField, Tooltip("要闪色的条（一般是 trackRect 上的 Image）")]
+    private Image rhythmBar;                        // ← 在 Inspector 里拖进来
+    [SerializeField] private Color perfectFlashColor = new Color(0.60f, 1.00f, 0.60f, 1f);
+    [SerializeField] private Color goodFlashColor    = new Color(0.60f, 0.80f, 1.00f, 1f);
+    [SerializeField] private Color missFlashColor    = new Color(1.00f, 0.40f, 0.40f, 1f);
+    [SerializeField, Min(0f)] private float perfectFlashSeconds = 0.08f;
+    [SerializeField, Min(0f)] private float goodFlashSeconds    = 0.08f;
+    [SerializeField, Min(0f)] private float missFlashSeconds    = 0.10f;
+
     // —— 外部驱动 —— 
     bool   chartMode  = true;
     double chartNowSec = 0.0;
@@ -81,6 +93,13 @@ public class PatternSystem : MonoBehaviour
     float _lastTrackW = -1f;
     Vector3[] _tmpCorners;
 
+    // Rhythm Bar 闪色状态
+    Color _barDefaultColor;
+    float _barFlashTimeLeft = 0f;
+    float _barFlashTotal    = 0f;
+    Color _barFlashFrom;
+    Color _barFlashTo;
+
     // ===== Unity =====
     void Awake()
     {
@@ -89,7 +108,6 @@ public class PatternSystem : MonoBehaviour
         RecalcInnerHalf();
         PrewarmPools();
 
-        // 校验
         if (!tapPrefab || !doublePrefab)
         {
             Debug.LogError("[PatternSystem] tapPrefab / doublePrefab 未设置。", this);
@@ -105,12 +123,15 @@ public class PatternSystem : MonoBehaviour
             Debug.LogError("[PatternSystem] 判定区（trackRect/perfect/good/miss）未设置。", this);
             enabled = false; return;
         }
+
+        // 记录 RhythmBar 默认颜色（若未指定 rhythmBar，则不做闪色）
+        if (rhythmBar) _barDefaultColor = rhythmBar.color;
     }
 
     void Update()
     {
         if (!enabled || !chartMode) return;
-        if (!ZonesReady()) return;                   // 避免首帧布局未就绪
+        if (!ZonesReady()) return;
 
         EnsurePatternRowMatchesTrack();
         RecalcInnerHalf();
@@ -126,17 +147,14 @@ public class PatternSystem : MonoBehaviour
         for (int i = 0; i < _notes.Count; i++)
         {
             var n = _notes[i];
-            if (!n.widget || n.judged) continue;     // 判定后立即停止移动
+            if (!n.widget || n.judged) continue;
 
-            // 平滑推进
-            float t01 = 0f;
+            float tRaw = 0f;
             if (n.leadTimeSec > 0f)
-                t01 = Mathf.Clamp01((float)((chartNowSec - n.departSec) / n.leadTimeSec));
-
-            float x = Mathf.Lerp(spawnLeftX, centerRowX, t01);
+                tRaw = (float)((chartNowSec - n.departSec) / n.leadTimeSec);
+            float x = Mathf.LerpUnclamped(spawnLeftX, centerRowX, tRaw);
             SetX_Unclamped(n.widget.Rect, x);
 
-            // 右侧 Miss 自动判定 -> 立即进入缩放动画
             float cxTrack = GetRectCenterXInTrack(n.widget.Rect);
             if (cxTrack > missRightT && chartNowSec > n.tStartSec)
             {
@@ -144,8 +162,8 @@ public class PatternSystem : MonoBehaviour
                 n.judgedKind = JudgeKind.Miss;
                 n.widget.SetWrong();
                 SetLabel("MISS");
-
-                n.animStarted = false;   // 立刻进入动画（无冻结）
+                FlashBar(JudgeKind.Miss);       // ★ Miss 闪色
+                n.animStarted = false;
                 n.animT = 0f;
                 _notes[i] = n;
             }
@@ -155,8 +173,11 @@ public class PatternSystem : MonoBehaviour
         for (int i = 0; i < pressed.Count; i++)
             HandleKey(pressed[i]);
 
-        // 命中/失误动画
+        // 命中/失误缩放动画
         AnimateAndCull();
+
+        // RhythmBar 闪色渐变回默认
+        TickBarFlash();
     }
 
     // ===== 外部 API =====
@@ -180,9 +201,7 @@ public class PatternSystem : MonoBehaviour
             tStartSec   = hitTimeSec,
             leadTimeSec = lead,
             departSec   = hitTimeSec - lead,
-
             baseScale   = w.InitialScale,
-
             judged = false, judgedKind = JudgeKind.None,
             dblAwaiting = false, dblFirstKey = KeyCode.None, dblExpireU = 0f,
             animStarted = false, animT = 0f
@@ -206,9 +225,7 @@ public class PatternSystem : MonoBehaviour
             tStartSec   = hitTimeSec,
             leadTimeSec = lead,
             departSec   = hitTimeSec - lead,
-
             baseScale   = w.InitialScale,
-
             judged = false, judgedKind = JudgeKind.None,
             dblAwaiting = false, dblFirstKey = KeyCode.None, dblExpireU = 0f,
             animStarted = false, animT = 0f
@@ -245,11 +262,11 @@ public class PatternSystem : MonoBehaviour
 
                     SetLabel(n.judgedKind == JudgeKind.Miss ? "MISS"
                          : (n.judgedKind == JudgeKind.Perfect ? "PERFECT (2x)" : "GOOD (2x)"));
+
+                    FlashBar(n.judgedKind);      // ★ 命中类型对应闪色
                     if (n.judgedKind != JudgeKind.Miss) HitJudge.RaiseBasicHit();
 
-                    // 立即进入缩放动画
-                    n.animStarted = false;
-                    n.animT = 0f;
+                    n.animStarted = false; n.animT = 0f;
                     _notes[iDouble] = n;
                     return;
                 }
@@ -270,7 +287,8 @@ public class PatternSystem : MonoBehaviour
             SetLabel(zoneKindTap == JudgeKind.Miss ? "MISS"
                  : (zoneKindTap == JudgeKind.Perfect ? "PERFECT" : "GOOD"));
 
-            // 立即进入缩放动画
+            FlashBar(zoneKindTap);        // ★ 命中类型对应闪色
+
             hit.animStarted = false;
             hit.animT = 0f;
             _notes[iTap] = hit;
@@ -351,6 +369,48 @@ public class PatternSystem : MonoBehaviour
                 _notes[i] = n;
             }
         }
+    }
+
+    // ===== RhythmBar 闪色逻辑 =====
+    void FlashBar(JudgeKind kind)
+    {
+        if (!rhythmBar) return;
+
+        Color c; float dur;
+        switch (kind)
+        {
+            case JudgeKind.Perfect: c = perfectFlashColor; dur = Mathf.Max(0f, perfectFlashSeconds); break;
+            case JudgeKind.Good:    c = goodFlashColor;    dur = Mathf.Max(0f, goodFlashSeconds);    break;
+            case JudgeKind.Miss:    c = missFlashColor;    dur = Mathf.Max(0f, missFlashSeconds);    break;
+            default: return;
+        }
+
+        if (_barDefaultColor.a <= 0f) _barDefaultColor = rhythmBar.color; // 兜底记一次默认色
+        _barFlashFrom    = c;
+        _barFlashTo      = _barDefaultColor;
+        _barFlashTotal   = (dur <= 0f ? 0.0001f : dur);
+        _barFlashTimeLeft= _barFlashTotal;
+
+        rhythmBar.color  = c;  // 立即变成闪色
+    }
+
+    void TickBarFlash()
+    {
+        if (!rhythmBar) return;
+        if (_barFlashTimeLeft <= 0f)
+        {
+            // 确保回到默认色
+            if (rhythmBar.color != _barDefaultColor)
+                rhythmBar.color = _barDefaultColor;
+            return;
+        }
+
+        _barFlashTimeLeft -= Time.unscaledDeltaTime;
+        float t = 1f - Mathf.Clamp01(_barFlashTimeLeft / _barFlashTotal);
+        rhythmBar.color = Color.Lerp(_barFlashFrom, _barFlashTo, t);
+
+        if (_barFlashTimeLeft <= 0f)
+            rhythmBar.color = _barDefaultColor;
     }
 
     // ===== 对象池 =====
@@ -541,5 +601,9 @@ public class PatternSystem : MonoBehaviour
         }
         _notes.Clear();
         SetLabel(string.Empty);
+
+        // 还原 RhythmBar 颜色
+        if (rhythmBar) rhythmBar.color = _barDefaultColor;
+        _barFlashTimeLeft = 0f;
     }
 }
