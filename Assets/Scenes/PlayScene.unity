@@ -710,11 +710,11 @@ Canvas:
   m_OverrideSorting: 0
   m_OverridePixelPerfect: 0
   m_SortingBucketNormalizedSize: 0
-  m_VertexColorAlwaysGammaSpace: 0
+  m_VertexColorAlwaysGammaSpace: 1
   m_AdditionalShaderChannelsFlag: 25
   m_UpdateRectTransformForStandalone: 0
   m_SortingLayerID: 0
-  m_SortingOrder: 0
+  m_SortingOrder: 500
   m_TargetDisplay: 0
 --- !u!224 &167582054
 RectTransform:
@@ -2039,7 +2039,7 @@ GameObject:
   - component: {fileID: 509004870}
   - component: {fileID: 509004871}
   - component: {fileID: 509004872}
-  m_Layer: 0
+  m_Layer: 1
   m_Name: Sprite
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -4460,7 +4460,7 @@ GameObject:
   - component: {fileID: 1170058754}
   - component: {fileID: 1170058755}
   - component: {fileID: 1170058756}
-  m_Layer: 0
+  m_Layer: 1
   m_Name: Player
   m_TagString: Player
   m_Icon: {fileID: 0}
@@ -4476,7 +4476,7 @@ Transform:
   m_GameObject: {fileID: 1170058753}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: -2.17, z: 0}
+  m_LocalPosition: {x: 0, y: -2.72, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -4508,7 +4508,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bbbd944dfc5827a4e840d6a028963fc5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  levelRunner: {fileID: 0}
+  levelRunner: {fileID: 1129485089}
   levelNumber: 1
 --- !u!1 &1180888742
 GameObject:
@@ -4798,7 +4798,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   targetWidth: 16
   targetHeight: 9
-  barColor: {r: 0, g: 0, b: 0, a: 1}
+  liveUpdate: 1
+  epsilon: 0.01
 --- !u!1 &1291006593
 GameObject:
   m_ObjectHideFlags: 0
@@ -5473,7 +5474,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -0.0000009536743, y: 0.00050354004}
+  m_AnchoredPosition: {x: -0.0000009536743, y: -0.3}
   m_SizeDelta: {x: 1120.5, y: 193.64}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1635697529
@@ -7518,7 +7519,7 @@ GameObject:
   m_Component:
   - component: {fileID: 2101335979}
   - component: {fileID: 2101335978}
-  m_Layer: 0
+  m_Layer: 1
   m_Name: CombatDirector
   m_TagString: Untagged
   m_Icon: {fileID: 0}
