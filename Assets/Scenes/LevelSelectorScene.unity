@@ -841,6 +841,7 @@ GameObject:
   - component: {fileID: 808395156}
   - component: {fileID: 808395155}
   - component: {fileID: 808395158}
+  - component: {fileID: 808395159}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -966,6 +967,21 @@ MonoBehaviour:
     m_MipBias: 0
     m_VarianceClampScale: 0.9
     m_ContrastAdaptiveSharpening: 0
+--- !u!114 &808395159
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 808395154}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8314068121814be4daf055a3e1133190, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  targetWidth: 16
+  targetHeight: 9
+  barColor: {r: 0, g: 0, b: 0, a: 1}
 --- !u!1 &942105305
 GameObject:
   m_ObjectHideFlags: 0
@@ -2223,12 +2239,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0cd44c1031e13a943bb63640046fad76, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_UiScaleMode: 0
+  m_UiScaleMode: 1
   m_ReferencePixelsPerUnit: 100
   m_ScaleFactor: 1
-  m_ReferenceResolution: {x: 800, y: 600}
+  m_ReferenceResolution: {x: 1920, y: 1080}
   m_ScreenMatchMode: 0
-  m_MatchWidthOrHeight: 0
+  m_MatchWidthOrHeight: 0.5
   m_PhysicalUnit: 3
   m_FallbackScreenDPI: 96
   m_DefaultSpriteDPI: 96
@@ -2243,8 +2259,8 @@ Canvas:
   m_GameObject: {fileID: 1565735246}
   m_Enabled: 1
   serializedVersion: 3
-  m_RenderMode: 0
-  m_Camera: {fileID: 0}
+  m_RenderMode: 1
+  m_Camera: {fileID: 808395156}
   m_PlaneDistance: 100
   m_PixelPerfect: 0
   m_ReceivesEvents: 1
@@ -2361,8 +2377,7 @@ MonoBehaviour:
   openButtons:
   - {fileID: 275177716}
   pages:
-  - {fileID: 1404581319534684684, guid: 5ed95e113d4042b42b2a33993f813a15, type: 3}
-  - {fileID: -2590063236201385768, guid: 5edffc4ed8c2fee469edf86867eb4729, type: 3}
+  - {fileID: 8546553829415843028, guid: 14199e8be62f8c145ad4c673b370417c, type: 3}
   viewportScale: 0.7
   pauseOnShow: 0
 --- !u!114 &1613903988
@@ -2378,15 +2393,13 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   root: {fileID: 2145896092}
-  exitButton: {fileID: 505206814}
   openButtons:
   - {fileID: 1069824083}
+  exitButton: {fileID: 505206814}
   entries:
   - button: {fileID: 7931682}
     pack: {fileID: 11400000, guid: f834da8da5711384eaeb0d8fedfceff7, type: 2}
-    optionalLabel: {fileID: 0}
   sceneFlow: {fileID: 1625988654}
-  useFirstLevelIfMultiple: 0
 --- !u!1 &1625988652
 GameObject:
   m_ObjectHideFlags: 0
