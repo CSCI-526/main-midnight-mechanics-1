@@ -2,7 +2,7 @@ Project Created for 2025 Fall USC CS-526
 
 Rhythm Clash
 
-WASD/up down right left arrow to give input
+WASD/up down right left to give input
 
 Press space bar at the right moment to perform attack!
 having all the extra input correctly will perform extra skill.
