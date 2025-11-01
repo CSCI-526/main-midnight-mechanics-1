@@ -7,7 +7,7 @@ public class EnemySpawner : MonoBehaviour
     [SerializeField] private BoxCollider2D safeArea;   // 安全框（内框，不生成）
 
     [Header("Spawn Params")]
-    [SerializeField] private Enemy enemyPrefab;        // 将由 LevelRunner/LevelConfig 注入；也可手填
+    [SerializeField] private Enemy enemyPrefab;        // 由 LevelRunner/LevelConfig 注入；也可手填
     [SerializeField] private float spawnInterval = 1.5f;
     [SerializeField] private float moveSpeed  = 1.8f;
     [SerializeField] private Transform player;
@@ -24,7 +24,17 @@ public class EnemySpawner : MonoBehaviour
 
     void Start()
     {
-        if (!player) player = FindObjectOfType<PlayerHealth>()?.transform;
+        if (!player)
+        {
+            var vs = Object.FindFirstObjectByType<ViewerSystem>(FindObjectsInactive.Include);
+            if (vs) player = vs.transform;
+            else
+            {
+                var tagged = GameObject.FindWithTag("Player");
+                if (tagged) player = tagged.transform;
+            }
+        }
+
         timer = 0.1f;
         elapsed = 0f;
     }
@@ -72,7 +82,11 @@ public class EnemySpawner : MonoBehaviour
         }
 
         var e = Instantiate(enemyPrefab, pos, Quaternion.identity);
-        if (!player) player = FindObjectOfType<PlayerHealth>()?.transform;
+        if (!player)
+        {
+            var vs = Object.FindFirstObjectByType<ViewerSystem>(FindObjectsInactive.Include);
+            if (vs) player = vs.transform;
+        }
         e.SetTarget(player);
         e.SetMoveSpeed(moveSpeed);
 

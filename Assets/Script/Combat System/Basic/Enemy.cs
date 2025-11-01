@@ -7,9 +7,16 @@ public class Enemy : MonoBehaviour
     private static readonly HashSet<Enemy> Alive = new();
     public static IReadOnlyCollection<Enemy> All => Alive;
 
+    [Header("Move")]
     [SerializeField] private float moveSpeed = 1.8f;
 
-    private Transform target;   
+    [Header("On Touch")]
+    [SerializeField] private bool clearAllOnTouch = true; 
+    [SerializeField] private bool destroyOnTouch  = true;
+    [SerializeField] private bool useLossOverride = false;
+    [SerializeField] private Vector2Int touchLossOverride = new Vector2Int(200, 250);
+
+    private Transform target;
     private Rigidbody2D rb;
 
     void Awake() { rb = GetComponent<Rigidbody2D>(); }
@@ -17,11 +24,10 @@ public class Enemy : MonoBehaviour
     void OnEnable()
     {
         Alive.Add(this);
-        
         if (!target)
         {
-            var tagged = GameObject.FindWithTag("Player");
-            target = tagged ? tagged.transform : FindObjectOfType<PlayerHealth>()?.transform;
+            var vs = Object.FindFirstObjectByType<ViewerSystem>(FindObjectsInactive.Include);
+            target = vs ? vs.transform : GameObject.FindWithTag("Player")?.transform;
         }
     }
 
@@ -34,35 +40,33 @@ public class Enemy : MonoBehaviour
         rb.MovePosition(rb.position + dir * moveSpeed * Time.fixedDeltaTime);
     }
 
-    public void SetTarget(Transform t) => target = t;
-    public void SetMoveSpeed(float s)  => moveSpeed = s;
-    
-    public void Kill()
-    {
-        if (this) Destroy(gameObject);
-    }
-    
-    void OnTriggerEnter2D(Collider2D other)   => TryTouchPlayer(other);
-    void OnCollisionEnter2D(Collision2D col)  => TryTouchPlayer(col.collider);
+    // ===== External setup API (used by spawner) =====
+    public void SetTarget(Transform t) { if (t) target = t; }
+    public void SetMoveSpeed(float s)   { moveSpeed = Mathf.Max(0f, s); }
 
+    void OnTriggerEnter2D(Collider2D other) => Touch(other);
+    void OnCollisionEnter2D(Collision2D col) => Touch(col.collider);
 
-    void TryTouchPlayer(Collider2D col)
+    void Touch(Collider2D col)
     {
         if (!col) return;
-        
-        var hp = col.GetComponentInParent<PlayerHealth>();
-        if (!hp) return;
+        var viewers = col.GetComponentInParent<ViewerSystem>();
+        if (!viewers) return;
 
-        hp.TakeDamage(1); 
+        if (useLossOverride) viewers.LoseRandomInRange(touchLossOverride);
+        else                 viewers.LoseRandomInRange(viewers.DefaultTouchLossRange);
+
+        // 
+        if (clearAllOnTouch) Enemy.KillAll();
+        else if (destroyOnTouch) Destroy(gameObject);
     }
-    
+
+    public void Kill() { if (this) Destroy(gameObject); }
+
     public static void KillAll()
     {
         if (Alive.Count == 0) return;
         var snapshot = new List<Enemy>(Alive);
-        foreach (var e in snapshot)
-        {
-            if (e) Destroy(e.gameObject);
-        }
+        foreach (var e in snapshot) if (e) Destroy(e.gameObject);
     }
 }

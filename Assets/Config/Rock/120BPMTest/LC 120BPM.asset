@@ -10,15 +10,15 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 82f1674aab31d7e4bbf7a0aedb396997, type: 3}
-  m_Name: New Level Config
+  m_Name: LC 120BPM
   m_EditorClassIdentifier: 
   levelName: Level
   chart: {fileID: 11400000, guid: d8ad615eaf180eb41804456c730a4c83, type: 2}
-  bgm: {fileID: 0}
-  levelDurationSeconds: 90
+  bgm: {fileID: 8300000, guid: 68973b67a05c743419647e41e2f7fd38, type: 3}
+  levelDurationSeconds: 300
   bgmDelaySec: 0
-  enemyPrefab: {fileID: 0}
+  enemyPrefab: {fileID: 1398160427443776457, guid: 60e602726284b7e4f9514c2ff9e9c51d, type: 3}
   spawnInterval: 1.5
-  spawnStartDelay: 0
-  spawnStopEarly: 0
+  spawnStartDelay: 5
+  spawnStopEarly: 5
   rewardGold: 20

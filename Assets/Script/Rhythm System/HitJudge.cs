@@ -6,30 +6,40 @@ public class HitJudge : MonoBehaviour
 {
     [SerializeField] private TMP_Text hitLabel;
 
-    public static event Action OnBasicHit;
+    public static event Action OnPerfect;
+    public static event Action OnGood;
     public static event Action OnMiss;
 
-    // 由外部调用的安全触发器
-    public static void RaiseBasicHit() => OnBasicHit?.Invoke();
-    public static void RaiseMiss()     => OnMiss?.Invoke();
+    public static void RaisePerfect() => OnPerfect?.Invoke();
+    public static void RaiseGood()    => OnGood?.Invoke();
+    public static void RaiseMiss()    => OnMiss?.Invoke();
 
     void OnEnable()
     {
-        OnBasicHit += ShowHit;
-        OnMiss     += ShowMiss;
+        OnPerfect += ShowPerfect;
+        OnGood    += ShowGood;
+        OnMiss    += ShowMiss;
     }
 
     void OnDisable()
     {
-        OnBasicHit -= ShowHit;
-        OnMiss     -= ShowMiss;
+        OnPerfect -= ShowPerfect;
+        OnGood    -= ShowGood;
+        OnMiss    -= ShowMiss;
     }
 
-    void ShowHit()
+    void ShowPerfect()
     {
         if (!hitLabel) return;
-        hitLabel.SetText("HIT");
-        hitLabel.color = Color.green;
+        hitLabel.SetText("PERFECT");
+        hitLabel.color = new Color(0.6f, 1f, 0.6f);
+    }
+
+    void ShowGood()
+    {
+        if (!hitLabel) return;
+        hitLabel.SetText("GOOD");
+        hitLabel.color = new Color(0.6f, 0.8f, 1f);
     }
 
     void ShowMiss()

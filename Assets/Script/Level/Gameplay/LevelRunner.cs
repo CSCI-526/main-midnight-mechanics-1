@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.SceneManagement; 
 
 public class LevelRunner : MonoBehaviour
 {
@@ -7,11 +8,17 @@ public class LevelRunner : MonoBehaviour
     [SerializeField] private AudioSource   music;
     [SerializeField] private PatternSystem pattern;
     [SerializeField] private EnemySpawner  spawner;
-    
+
+
+    [Header("Game Over")]
+    [SerializeField] private ViewerSystem viewers;
+    [SerializeField] private GameOverUI   gameOverUI;
+    [Tooltip("返回关卡选择时要加载的场景名；留空则只 AbortLevel()")]
+    [SerializeField] private string levelSelectSceneName = "";
+
     [Header("Clock (Sample-Time & Drift Correction)")]
-    [SerializeField] private bool  useSampleClock = true;                 // 打开后启用“样本为王”
-    [SerializeField, Range(0.0005f, 0.02f)]
-    private float driftAlpha = 0.002f;                                    // LPF系数，越小越稳
+    [SerializeField] private bool  useSampleClock = true;
+    [SerializeField, Range(0.0005f, 0.02f)] private float driftAlpha = 0.002f;
     [SerializeField] private bool  debugLogDrift = false;
     [SerializeField, Min(0.05f)] private float debugLogIntervalSec = 0.5f;
 
@@ -28,14 +35,30 @@ public class LevelRunner : MonoBehaviour
     int   cursor;
     bool  running;
 
-    float  lead;                 // 从屏外到命中中心的飞行时间（取 chart.defaultLeadTimeSec）
-    double chartStartDsp;        // 谱面时钟起点（DSP）
-    double musicStartDsp;        // BGM 计划开始的 DSP 时刻（与 chart 对齐）
+    float  lead;
+    double chartStartDsp;
+    double musicStartDsp;
     bool   musicScheduled;
 
     // —— 漂移跟踪 ——
-    double driftLPF;             // 低通后的漂移（秒）
-    double nextDriftLogDsp;      // 下次打印的 dsp 时刻
+    double driftLPF;
+    double nextDriftLogDsp;
+
+    void OnEnable()
+    {
+        // ★ 兜底查找（避免“订到另一份实例”）
+        if (!viewers) viewers = FindFirstObjectByType<ViewerSystem>(FindObjectsInactive.Include);
+        if (!pattern) pattern = FindFirstObjectByType<PatternSystem>(FindObjectsInactive.Include);
+        if (!spawner) spawner = FindFirstObjectByType<EnemySpawner>(FindObjectsInactive.Include);
+        if (!gameOverUI) gameOverUI = FindFirstObjectByType<GameOverUI>(FindObjectsInactive.Include);
+
+        if (viewers) viewers.OnDepleted += HandleGameOver; // ★ 订阅观众归零
+    }
+
+    void OnDisable()
+    {
+        if (viewers) viewers.OnDepleted -= HandleGameOver;
+    }
 
     public void Apply(LevelConfig level)
     {
@@ -53,22 +76,22 @@ public class LevelRunner : MonoBehaviour
         pattern.ResetForNewLevel();
         pattern.EnableChartMode(true);
 
-        // 生成时间轴（chart 的 tSec 已含 songOffsetSec）
+        // 生成时间轴
         timeline = Current.chart.BuildTimeline();
         cursor   = 0;
 
-        // —— 飞行时间（领跑） ——
+        // 领跑时间
         lead = Mathf.Max(0.01f, Current.chart.defaultLeadTimeSec);
 
-        // 关卡时长（按配置）
+        // 关卡时长
         LevelDuration   = Mathf.Max(1f, Current.levelDurationSeconds);
         ElapsedRealtime = 0f;
 
         // —— DSP 预卷（lead 秒） ——
         double dspNow        = AudioSettings.dspTime;
-        double extraSilence  = Mathf.Max(0f, Current.bgmDelaySec); // 如果你想比预卷再多一点静默
-        chartStartDsp        = dspNow + lead + extraSilence;       // 让 chartNow 在音乐开播前是负的
-        musicStartDsp        = chartStartDsp;                      // 音乐与 chart 零点对齐
+        double extraSilence  = Mathf.Max(0f, Current.bgmDelaySec);
+        chartStartDsp        = dspNow + lead + extraSilence;
+        musicStartDsp        = chartStartDsp;
         musicScheduled       = false;
 
         // —— 漂移复位 ——
@@ -82,11 +105,11 @@ public class LevelRunner : MonoBehaviour
             music.playOnAwake  = false;
             music.loop         = false;
             music.spatialBlend = 0f;
-            music.PlayScheduled(musicStartDsp);                    // 样本级预约
+            music.PlayScheduled(musicStartDsp);
             musicScheduled = true;
         }
 
-        // 刷怪窗口按关卡配置
+        // 刷怪窗口
         if (spawner)
         {
             spawner.ApplyFromLevel(Current);
@@ -101,23 +124,22 @@ public class LevelRunner : MonoBehaviour
     {
         if (!running) return;
 
-        // 关卡实时间推进
+        // ★ 如果观众已归零，直接早退（双保险）
+        if (viewers && viewers.IsDepleted) return;
+
+        // 实时间推进
         ElapsedRealtime = Mathf.Min(ElapsedRealtime + Time.deltaTime, LevelDuration);
 
         // —— 时钟 & 漂移测量 ——
         double dspNow   = AudioSettings.dspTime;
-        double expected = dspNow - musicStartDsp; // 期望：按DSP推测“音乐该播到”哪里（可能为负）
+        double expected = dspNow - musicStartDsp;
 
         if (useSampleClock && music && music.clip && music.timeSamples > 0)
         {
-            // 实际：样本时钟（音乐真实播到的地方）
             double actual   = (double)music.timeSamples / music.clip.frequency;
-            double measured = expected - actual;                 // 正：DSP超前(音乐偏慢)
-
-            // 慢速LPF，避免 jitter
+            double measured = expected - actual; // 正：DSP超前(音乐偏慢)
             driftLPF += (measured - driftLPF) * driftAlpha;
 
-            // 可选：节流打印
             if (debugLogDrift && dspNow >= nextDriftLogDsp)
             {
                 double driftMs = driftLPF * 1000.0;
@@ -126,15 +148,13 @@ public class LevelRunner : MonoBehaviour
             }
         }
 
-        // —— 谱面时钟（用“DSP – 漂移LPF”稳定靠拢样本时钟）——
         double chartNow = (dspNow - chartStartDsp) - (useSampleClock ? driftLPF : 0.0);
-        // 关键点：预卷阶段（expected<0）仍可得到负 chartNow；音乐开播后逐步校正到样本时钟
 
-        // —— 投喂事件（Tap/Double）——
+        // —— 投喂事件 ——
         while (cursor < (timeline?.Count ?? 0))
         {
             var ev = timeline[cursor];
-            if (ev.tSec <= chartNow + lead)                        // 等价于 chartNow >= ev.tSec - lead
+            if (ev.tSec <= chartNow + lead)
             {
                 if (ev.kind == RhythmChart.NoteKind.Double)
                     pattern.EnqueueDouble(ev.tSec, lead);
@@ -145,10 +165,10 @@ public class LevelRunner : MonoBehaviour
             else break;
         }
 
-        // 驱动 Pattern 的“现在时间”
+        // 驱动 Pattern
         pattern.SetChartNow(chartNow);
 
-        // —— 关卡结束（按 LevelDuration）——
+        // —— 关卡自然结束 ——
         if (ElapsedRealtime >= LevelDuration)
         {
             running = false;
@@ -163,7 +183,7 @@ public class LevelRunner : MonoBehaviour
 
         if (spawner) spawner.StopAndReset();
         Enemy.KillAll();
-        var bullets = FindObjectsOfType<Bullet>();
+        var bullets = FindObjectsByType<Bullet>(FindObjectsInactive.Include, FindObjectsSortMode.None);
         foreach (var b in bullets) if (b) Destroy(b.gameObject);
 
         if (pattern) pattern.ResetForNewLevel();
@@ -173,8 +193,49 @@ public class LevelRunner : MonoBehaviour
     {
         if (spawner) spawner.StopAndReset();
         Enemy.KillAll();
-        var bullets = FindObjectsOfType<Bullet>();
+        var bullets = FindObjectsByType<Bullet>(FindObjectsInactive.Include, FindObjectsSortMode.None);
         foreach (var b in bullets) if (b) Destroy(b.gameObject);
         if (pattern) pattern.ResetForNewLevel();
+    }
+
+    // ★ 新增：观众归零 → 统一 GameOver 流程
+    void HandleGameOver()
+    {
+        if (!running) return;       // 防重复
+        running = false;
+
+        // 1) 刹车
+        if (music) music.Stop();
+        if (spawner) spawner.StopAndReset();
+        if (pattern) pattern.EnableChartMode(false); // PatternSystem 自己看到 false 会停更新
+
+        Enemy.KillAll();
+
+        // 2) 弹 UI（有就用；没有就最小化退路）
+        if (gameOverUI)
+        {
+            gameOverUI.Show(
+                onBackToSelect: () =>
+                {
+                    Time.timeScale = 1f;
+                    if (!string.IsNullOrEmpty(levelSelectSceneName))
+                        SceneManager.LoadScene(levelSelectSceneName);
+                    else
+                        AbortLevel(); // 最小退路：清场并留在当前场景
+                },
+                onRetry: () =>
+                {
+                    Time.timeScale = 1f;
+                    AbortLevel();
+                    if (viewers) viewers.ResetToStart();
+                    Apply(Current); // 直接重开同一关
+                }
+            );
+        }
+        else
+        {
+            // 没有 UI 也不至于失控：至少清场
+            Debug.LogWarning("[LevelRunner] GameOverUI 未设置：将仅执行清场，不显示面板。");
+        }
     }
 }
