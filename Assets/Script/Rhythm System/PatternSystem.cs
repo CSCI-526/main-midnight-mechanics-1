@@ -49,12 +49,12 @@ public class PatternSystem : MonoBehaviour
     [SerializeField, Min(0f)] private float goodFlashSeconds    = 0.08f;
     [SerializeField, Min(0f)] private float missFlashSeconds    = 0.10f;
 
+    [Header("Viewers")]
+    [SerializeField] private ViewerSystem viewers; // 如空则自动查找
+
     // —— 外部驱动 —— 
     bool   chartMode  = true;
     double chartNowSec = 0.0;
-
-    [Header("Viewers")]
-    [SerializeField] private ViewerSystem viewers; // 如空则自动查找
 
     enum JudgeKind { None, Perfect, Good, Miss }
     enum NoteType  { Tap, Double }
@@ -159,7 +159,7 @@ public class PatternSystem : MonoBehaviour
                 FlashBar(JudgeKind.Miss);
 
                 ApplyViewerDelta(JudgeKind.Miss);
-                HitJudge.RaiseMiss(); // 广播给战斗等系统
+                HitJudge.RaiseMiss();
 
                 n.animStarted = false;
                 n.animT = 0f;
@@ -175,6 +175,7 @@ public class PatternSystem : MonoBehaviour
         TickBarFlash();
     }
 
+    // ===== 外部 API =====
     public void EnableChartMode(bool on) => chartMode = on;
     public void SetChartNow(double nowSec) => chartNowSec = nowSec;
 
@@ -226,9 +227,10 @@ public class PatternSystem : MonoBehaviour
         });
     }
 
+    // ===== 输入判定 =====
     void HandleKey(KeyCode key)
     {
-        // Double 优先
+        // Double
         int iDouble = PickRightmostInZones(NoteType.Double, out JudgeKind zoneKindDouble);
         if (iDouble >= 0)
         {
@@ -255,7 +257,6 @@ public class PatternSystem : MonoBehaviour
                         n.widget.SetWrong();
                         SetLabel("MISS");
                         FlashBar(JudgeKind.Miss);
-
                         ApplyViewerDelta(JudgeKind.Miss);
                         HitJudge.RaiseMiss();
                     }
@@ -264,7 +265,6 @@ public class PatternSystem : MonoBehaviour
                         n.widget.SetOk();
                         SetLabel(n.judgedKind == JudgeKind.Perfect ? "PERFECT (2x)" : "GOOD (2x)");
                         FlashBar(n.judgedKind);
-
                         ApplyViewerDelta(n.judgedKind);
                         if (n.judgedKind == JudgeKind.Perfect) HitJudge.RaisePerfect();
                         else                                    HitJudge.RaiseGood();
@@ -290,7 +290,6 @@ public class PatternSystem : MonoBehaviour
                 hit.widget.SetWrong();
                 SetLabel("MISS");
                 FlashBar(JudgeKind.Miss);
-
                 ApplyViewerDelta(JudgeKind.Miss);
                 HitJudge.RaiseMiss();
             }
@@ -299,7 +298,6 @@ public class PatternSystem : MonoBehaviour
                 hit.widget.SetOk();
                 SetLabel(zoneKindTap == JudgeKind.Perfect ? "PERFECT" : "GOOD");
                 FlashBar(zoneKindTap);
-
                 ApplyViewerDelta(zoneKindTap);
                 if (zoneKindTap == JudgeKind.Perfect) HitJudge.RaisePerfect();
                 else                                   HitJudge.RaiseGood();
@@ -354,6 +352,7 @@ public class PatternSystem : MonoBehaviour
         return InsideZoneXInTrack(cx, zonePerfect) || InsideZoneXInTrack(cx, zoneGood) || InsideZoneXInTrack(cx, zoneMiss);
     }
 
+    // ===== 动画 / 回收 =====
     void AnimateAndCull()
     {
         for (int i = _notes.Count - 1; i >= 0; i--)
@@ -397,6 +396,7 @@ public class PatternSystem : MonoBehaviour
         }
     }
 
+    // ===== 闪色 =====
     void FlashBar(JudgeKind kind)
     {
         if (!rhythmBar) return;
@@ -413,7 +413,7 @@ public class PatternSystem : MonoBehaviour
         if (_barDefaultColor.a <= 0f) _barDefaultColor = rhythmBar.color;
         _barFlashFrom    = c;
         _barFlashTo      = _barDefaultColor;
-        _barFlashTotal   = (dur <= 0f ? 0.0001f : dur);
+        _barFlashTotal   = (dur <= 0 ? 0.0001f : dur);
         _barFlashTimeLeft= _barFlashTotal;
 
         rhythmBar.color  = c;
@@ -437,6 +437,7 @@ public class PatternSystem : MonoBehaviour
             rhythmBar.color = _barDefaultColor;
     }
 
+    // ===== 对象池 =====
     void PrewarmPools()
     {
         if (tapPrefab && prewarmTap > 0)
@@ -488,6 +489,7 @@ public class PatternSystem : MonoBehaviour
         else _poolDouble.Enqueue(c);
     }
 
+    // ===== 输入 & 音效 =====
     static readonly KeyCode[] sPlayableKeys = BuildPlayableKeys();
 
     static KeyCode[] BuildPlayableKeys()
@@ -522,6 +524,7 @@ public class PatternSystem : MonoBehaviour
             sfxSource.PlayOneShot(keyPressSfx, keyPressSfxVolume);
     }
 
+    // ===== 几何工具 =====
     float GetPerfectCenterXInRow()
     {
         float centerT = GetZoneCenterXInTrack(zonePerfect);

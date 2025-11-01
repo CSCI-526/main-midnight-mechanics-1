@@ -436,4 +436,9 @@ public sealed class ChatItem : MonoBehaviour
             return Color.HSVToRGB(hue, sat, val, true);
         }
     }
+    
+    public void Setup(string username, string message, Color _ignoredNameColor, Sprite badge = null)
+    {
+        Setup(username, message, badge);
+    }
 }
