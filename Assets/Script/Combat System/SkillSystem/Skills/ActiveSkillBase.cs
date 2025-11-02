@@ -2,19 +2,16 @@ using UnityEngine;
 
 namespace Game.Skills
 {
-    /// <summary>Base type for active skills.</summary>
+    /// <summary>主动技能基类（已精简：不再传入被动统计）。</summary>
     public abstract class ActiveSkillBase : ScriptableObject
     {
-        /// <summary>Cast the skill.</summary>
-        /// <param name="ctx">Runtime context.</param>
-        /// <param name="stats">Aggregated passive stats.</param>
-        public abstract void Cast(SkillCastContext ctx, PlayerSkills.SkillStats stats);
+        public abstract void Cast(SkillCastContext ctx);
     }
 
-    /// <summary>Runtime context passed into skills.</summary>
+    /// <summary>技能运行时上下文。</summary>
     public sealed class SkillCastContext
     {
-        public Transform Player;
-        public MonoBehaviour Runner;
+        public Transform Player;        // 玩家位姿
+        public MonoBehaviour Runner;    // 调用者（用于 Spawn/协程等）
     }
 }

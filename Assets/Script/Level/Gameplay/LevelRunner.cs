@@ -1,3 +1,4 @@
+// LevelRunner.cs
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement; 
@@ -8,7 +9,6 @@ public class LevelRunner : MonoBehaviour
     [SerializeField] private AudioSource   music;
     [SerializeField] private PatternSystem pattern;
     [SerializeField] private EnemySpawner  spawner;
-
 
     [Header("Game Over")]
     [SerializeField] private ViewerSystem viewers;
@@ -46,13 +46,12 @@ public class LevelRunner : MonoBehaviour
 
     void OnEnable()
     {
-        // ★ 兜底查找（避免“订到另一份实例”）
         if (!viewers) viewers = FindFirstObjectByType<ViewerSystem>(FindObjectsInactive.Include);
         if (!pattern) pattern = FindFirstObjectByType<PatternSystem>(FindObjectsInactive.Include);
         if (!spawner) spawner = FindFirstObjectByType<EnemySpawner>(FindObjectsInactive.Include);
         if (!gameOverUI) gameOverUI = FindFirstObjectByType<GameOverUI>(FindObjectsInactive.Include);
 
-        if (viewers) viewers.OnDepleted += HandleGameOver; // ★ 订阅观众归零
+        if (viewers) viewers.OnDepleted += HandleGameOver;
     }
 
     void OnDisable()
@@ -124,7 +123,7 @@ public class LevelRunner : MonoBehaviour
     {
         if (!running) return;
 
-        // ★ 如果观众已归零，直接早退（双保险）
+        // 观众归零：双保险
         if (viewers && viewers.IsDepleted) return;
 
         // 实时间推进
@@ -183,8 +182,9 @@ public class LevelRunner : MonoBehaviour
 
         if (spawner) spawner.StopAndReset();
         Enemy.KillAll();
-        var bullets = FindObjectsByType<Bullet>(FindObjectsInactive.Include, FindObjectsSortMode.None);
-        foreach (var b in bullets) if (b) Destroy(b.gameObject);
+        // ★ 改为按基类统一清理所有弹体
+        var projs = FindObjectsByType<ProjectileBase>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        for (int i = 0; i < projs.Length; i++) if (projs[i]) Destroy(projs[i].gameObject);
 
         if (pattern) pattern.ResetForNewLevel();
     }
@@ -193,25 +193,25 @@ public class LevelRunner : MonoBehaviour
     {
         if (spawner) spawner.StopAndReset();
         Enemy.KillAll();
-        var bullets = FindObjectsByType<Bullet>(FindObjectsInactive.Include, FindObjectsSortMode.None);
-        foreach (var b in bullets) if (b) Destroy(b.gameObject);
+        var projs = FindObjectsByType<ProjectileBase>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        for (int i = 0; i < projs.Length; i++) if (projs[i]) Destroy(projs[i].gameObject);
         if (pattern) pattern.ResetForNewLevel();
     }
 
-    // ★ 新增：观众归零 → 统一 GameOver 流程
+    // —— 观众归零 → GameOver 流程 ——
     void HandleGameOver()
     {
-        if (!running) return;       // 防重复
+        if (!running) return;
         running = false;
 
-        // 1) 刹车
         if (music) music.Stop();
         if (spawner) spawner.StopAndReset();
-        if (pattern) pattern.EnableChartMode(false); // PatternSystem 自己看到 false 会停更新
+        if (pattern) pattern.EnableChartMode(false);
 
         Enemy.KillAll();
+        var projs = FindObjectsByType<ProjectileBase>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        for (int i = 0; i < projs.Length; i++) if (projs[i]) Destroy(projs[i].gameObject);
 
-        // 2) 弹 UI（有就用；没有就最小化退路）
         if (gameOverUI)
         {
             gameOverUI.Show(
@@ -221,20 +221,19 @@ public class LevelRunner : MonoBehaviour
                     if (!string.IsNullOrEmpty(levelSelectSceneName))
                         SceneManager.LoadScene(levelSelectSceneName);
                     else
-                        AbortLevel(); // 最小退路：清场并留在当前场景
+                        AbortLevel();
                 },
                 onRetry: () =>
                 {
                     Time.timeScale = 1f;
                     AbortLevel();
                     if (viewers) viewers.ResetToStart();
-                    Apply(Current); // 直接重开同一关
+                    Apply(Current);
                 }
             );
         }
         else
         {
-            // 没有 UI 也不至于失控：至少清场
             Debug.LogWarning("[LevelRunner] GameOverUI 未设置：将仅执行清场，不显示面板。");
         }
     }

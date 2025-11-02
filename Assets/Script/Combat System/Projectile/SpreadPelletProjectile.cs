@@ -1,64 +1,78 @@
 using UnityEngine;
 
-/// <summary>
-/// Simple pellet for SpreadShot. Kinematic 2D projectile; trigger-hit kills enemies.
-/// </summary>
 [RequireComponent(typeof(Rigidbody2D), typeof(Collider2D))]
-public sealed class SpreadPelletProjectile : MonoBehaviour
+public sealed class SpreadPelletProjectile : ProjectileBase
 {
-    [SerializeField] private float speed = 12f;
-    [SerializeField] private int   damage = 1;       // 预留：如果以后做敌人血量可用
-    [SerializeField] private float lifeTime = 2f;
+    [Header("Defaults")]
+    [SerializeField] private float defaultSpeed = 12f;
+    [SerializeField] private float lifeTime     = 5f;
 
+    [Header("Collision")]
+    [SerializeField] private bool  useTrigger  = true;
+    [SerializeField] private float minDirLen   = 1e-6f;
+
+    // runtime
     private Rigidbody2D _rb;
-    private Vector2     _velocity;
+    private float _speed;
+    private int   _damage;
+    private bool  _fired;
 
-    public float DefaultSpeed => speed;
+    public float DefaultSpeed => defaultSpeed;
 
-    /// <summary>Configure projectile stats.</summary>
-    public void Configure(float moveSpeed, int dmg)
+    void Awake()
     {
-        speed  = Mathf.Max(0.01f, moveSpeed);
-        damage = Mathf.Max(0, dmg);
+        _rb = GetComponent<Rigidbody2D>();
+        if (_rb) { _rb.gravityScale = 0f; _rb.collisionDetectionMode = CollisionDetectionMode2D.Continuous; }
+        var col = GetComponent<Collider2D>();
+        if (col) col.isTrigger = useTrigger;
     }
 
-    /// <summary>Fire in a direction from a start position.</summary>
+    public void Configure(float speed, int damage)
+    {
+        _speed  = (speed > 0f) ? speed : defaultSpeed;
+        _damage = Mathf.Max(1, damage);
+    }
+
     public void FireDir(Vector2 start, Vector2 dir)
     {
         transform.position = start;
-        _velocity = dir.normalized * speed;
+        Vector2 v = dir.sqrMagnitude < minDirLen ? Vector2.right : dir.normalized;
+        if (_rb) _rb.linearVelocity = v * (_speed > 0f ? _speed : defaultSpeed);
+        _fired = true;
+        Destroy(gameObject, Mathf.Max(0.01f, lifeTime));
     }
 
-    private void Awake()
+    void Update()
     {
-        _rb = GetComponent<Rigidbody2D>();
-        _rb.bodyType     = RigidbodyType2D.Kinematic;
-        _rb.gravityScale = 0f;
-        _rb.simulated    = true;
-
-        var col = GetComponent<Collider2D>();
-        col.isTrigger = true;
-
-        Invoke(nameof(Die), lifeTime);
+        // 若未调用 FireDir，则保持静默
+        if (!_fired || !_rb) return;
+        // 速度维持（防止外力或拖慢）
+        var v = _rb.linearVelocity;
+        if (v.sqrMagnitude > 0f)
+            _rb.linearVelocity = v.normalized * (_speed > 0f ? _speed : defaultSpeed);
     }
 
-    private void FixedUpdate()
+    void OnTriggerEnter2D(Collider2D other)
     {
-        _rb.MovePosition(_rb.position + _velocity * Time.fixedDeltaTime);
+        if (!useTrigger) return;
+        Hit(other);
     }
 
-    private void OnTriggerEnter2D(Collider2D other)
+    void OnCollisionEnter2D(Collision2D c)
     {
-        var enemy = other.GetComponent<Enemy>();
-        if (enemy != null)
-        {
-            enemy.Kill();
-            Die();
-        }
+        if (useTrigger) return;
+        Hit(c.collider);
     }
 
-    private void Die()
+    void Hit(Collider2D col)
     {
-        if (this != null) Destroy(gameObject);
+        var enemy = col ? col.GetComponentInParent<Enemy>() : null;
+        if (!enemy) return;
+
+        var hp = enemy.GetComponent<EnemyHealth>();
+        if (hp) hp.TakeDamage(_damage);
+        else    enemy.Kill();
+
+        Destroy(gameObject);
     }
 }

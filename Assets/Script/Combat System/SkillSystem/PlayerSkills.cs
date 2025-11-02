@@ -5,86 +5,75 @@ using static SkillLibrary;
 
 public class PlayerSkills : MonoBehaviour
 {
-    public const int MAX_LEVEL = 5;
+    [Header("Active Loadout")]
+    [SerializeField, Min(1)] private int maxActive = 4;
+    [SerializeField] private List<ActiveSkillId> preselected = new(); // 可选：在编辑器预填，Awake 时应用
 
-    [Header("Active Slots")]
-    [SerializeField] private int maxActive = 4;
+    [Header("Global Base Stats")]
+    [SerializeField] private int   baseDamage = 1;  // 给投射物/范围技当作基础伤害
+    [SerializeField] private float baseArea   = 1f; // 影响半径/搜索范围
+    [SerializeField] private int   baseCount  = 1;  // 影响同屏生成数量/弹数
+    [SerializeField] private float baseSpeed  = 12f;// 影响弹速/角速度等
 
-    [Header("Base Stats (affect all attacks incl. basic)")]
-    [SerializeField] private int   baseDamage = 1;
-    [SerializeField] private float baseArea   = 1f;
-    [SerializeField] private int   baseCount  = 1;
-    [SerializeField] private float baseSpeed  = 12f;
-
-    // Actives are ordered for HUD.
-    private readonly List<ActiveSkillId>  _activeEq  = new();
-    // Passives are recorded for bookkeeping; no slot limit nor HUD usage.
-    private readonly List<PassiveSkillId> _passiveEq = new();
-
-    private readonly Dictionary<ActiveSkillId,  int> _activeLv  = new();
-    private readonly Dictionary<PassiveSkillId, int> _passiveLv = new();
+    private readonly List<ActiveSkillId> _actives = new();
 
     public event Action OnChanged;
-
-    public IReadOnlyList<ActiveSkillId>  Actives  => _activeEq;
-    public IReadOnlyList<PassiveSkillId> Passives => _passiveEq;
-
-    public int GetLevel(ActiveSkillId id)  => _activeLv.TryGetValue(id, out var lv) ? lv : 0;
-    public int GetLevel(PassiveSkillId id) => _passiveLv.TryGetValue(id, out var lv) ? lv : 0;
-
-    public bool IsFullActive => _activeEq.Count >= maxActive;
+    public IReadOnlyList<ActiveSkillId> Actives => _actives;
 
     private void Awake()
     {
+        _actives.Clear();
+        if (preselected != null)
+        {
+            for (int i = 0; i < preselected.Count && _actives.Count < maxActive; i++)
+                TryAdd(preselected[i]);
+        }
         Notify();
     }
 
-    /// <summary>Add or level-up an active skill. Respects active slots and MAX_LEVEL.</summary>
-    public bool TryAddOrLevelUp(ActiveSkillId id)
+    public bool TryAdd(ActiveSkillId id)
     {
-        if (_activeLv.TryGetValue(id, out var lv))
-        {
-            if (lv >= MAX_LEVEL) return false;
-            _activeLv[id] = lv + 1;
-            Notify();
-            return true;
-        }
-
-        if (IsFullActive) return false;
-        _activeEq.Add(id);
-        _activeLv[id] = 1;
+        if (_actives.Count >= maxActive) return false;
+        if (_actives.Contains(id)) return false;
+        _actives.Add(id);
         Notify();
         return true;
     }
 
-    /// <summary>Add or level-up a passive skill. No slot limit; only MAX_LEVEL applies.</summary>
-    public bool TryAddOrLevelUp(PassiveSkillId id)
+    public bool Remove(ActiveSkillId id)
     {
-        if (_passiveLv.TryGetValue(id, out var lv))
+        bool ok = _actives.Remove(id);
+        if (ok) Notify();
+        return ok;
+    }
+
+    public void SetLoadout(IEnumerable<ActiveSkillId> ids)
+    {
+        _actives.Clear();
+        if (ids != null)
         {
-            if (lv >= MAX_LEVEL) return false;
-            _passiveLv[id] = lv + 1;
-            Notify();
-            return true;
+            foreach (var id in ids)
+            {
+                if (_actives.Count >= maxActive) break;
+                if (!_actives.Contains(id)) _actives.Add(id);
+            }
         }
-
-        _passiveEq.Add(id);   // kept for bookkeeping/testing; not shown in HUD
-        _passiveLv[id] = 1;
         Notify();
-        return true;
     }
 
-    /// <summary>Clear all equipped skills and levels.</summary>
-    public void ResetAll(bool keepNothing = true)
+    public void ResetAll()
     {
-        _activeEq.Clear();
-        _passiveEq.Clear();
-        _activeLv.Clear();
-        _passiveLv.Clear();
+        _actives.Clear();
         Notify();
     }
 
-    private void Notify() => OnChanged?.Invoke();
+    public SkillStats GetCurrentStats() => new SkillStats
+    {
+        damage = baseDamage,
+        area   = baseArea,
+        count  = Mathf.Max(1, baseCount),
+        speed  = baseSpeed
+    };
 
     [Serializable]
     public struct SkillStats
@@ -95,20 +84,5 @@ public class PlayerSkills : MonoBehaviour
         public float speed;
     }
 
-    /// <summary>Aggregate current passive levels into runtime stats.</summary>
-    public SkillStats GetCurrentStats()
-    {
-        int dmgLv   = GetLevel(PassiveSkillId.DamageUp);
-        int areaLv  = GetLevel(PassiveSkillId.AreaUp);
-        int countLv = GetLevel(PassiveSkillId.CountUp);
-        int spdLv   = GetLevel(PassiveSkillId.SpeedUp);
-
-        return new SkillStats
-        {
-            damage = baseDamage + dmgLv,
-            area   = baseArea   + areaLv,
-            count  = Mathf.Max(1, baseCount + countLv),
-            speed  = baseSpeed  + spdLv
-        };
-    }
+    private void Notify() => OnChanged?.Invoke();
 }

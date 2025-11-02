@@ -3,26 +3,27 @@ using UnityEngine;
 public class EnemySpawner : MonoBehaviour
 {
     [Header("Areas (World, BoxCollider2D)")]
-    [SerializeField] private BoxCollider2D spawnArea;  // 生成框（外框）
-    [SerializeField] private BoxCollider2D safeArea;   // 安全框（内框，不生成）
+    [SerializeField] private BoxCollider2D spawnArea;   // 生成外框
+    [SerializeField] private BoxCollider2D safeArea;    // 安全内框（不生成，可空）
 
-    [Header("Spawn Params")]
-    [SerializeField] private Enemy enemyPrefab;        // 由 LevelRunner/LevelConfig 注入；也可手填
-    [SerializeField] private float spawnInterval = 1.5f;
-    [SerializeField] private float moveSpeed  = 1.8f;
-    [SerializeField] private Transform player;
+    [Header("Prefab & Target")]
+    [SerializeField] private Enemy     enemyPrefab;     // 由 LevelConfig 注入；也可手填
+    [SerializeField] private Transform player;          // 目标（默认找 ViewerSystem 或 Tag=Player）
 
-    // 窗口控制
+    // —— 窗口与计时（由 LevelRunner 配置）——
     float levelDuration;
     float startDelay;
     float stopBeforeEnd;
     float elapsed;
     bool  windowActive;
 
+    // 刷怪间隔来自 LevelConfig（不再序列化在 Spawner 上）
+    float spawnIntervalSec = 1.5f;
     float timer;
-    bool  warnedMissingPrefab = false;
 
-    void Start()
+    bool warnedMissingPrefab = false;
+
+    void Awake()
     {
         if (!player)
         {
@@ -34,7 +35,6 @@ public class EnemySpawner : MonoBehaviour
                 if (tagged) player = tagged.transform;
             }
         }
-
         timer = 0.1f;
         elapsed = 0f;
     }
@@ -50,6 +50,7 @@ public class EnemySpawner : MonoBehaviour
 
         if (!inWindow)
         {
+            // 窗口外不刷怪，也不积累计时
             timer = 0.1f;
             return;
         }
@@ -57,13 +58,8 @@ public class EnemySpawner : MonoBehaviour
         timer -= Time.deltaTime;
         if (timer > 0f) return;
 
-        if (!enemyPrefab)
+        if (!EnsurePrefab())
         {
-            if (!warnedMissingPrefab)
-            {
-                Debug.LogWarning("[Spawner] enemyPrefab is NULL. Assign in LevelConfig or Inspector.", this);
-                warnedMissingPrefab = true;
-            }
             timer = 0.25f;
             return;
         }
@@ -81,16 +77,100 @@ public class EnemySpawner : MonoBehaviour
             return;
         }
 
-        var e = Instantiate(enemyPrefab, pos, Quaternion.identity);
+        SpawnOneAt(pos);            // 不改敌人速度，按预制体自身设置
+        timer = Mathf.Max(0.05f, spawnIntervalSec);
+    }
+
+    /// <summary>
+    /// LevelConfig 注入（用于设置 enemyPrefab 与 spawn 间隔）
+    /// </summary>
+    public void ApplyFromLevel(LevelConfig c)
+    {
+        if (!c) return;
+        enemyPrefab     = c.enemyPrefab;
+        spawnIntervalSec= Mathf.Max(0.05f, c.spawnInterval);
+        warnedMissingPrefab = false;
+
+        Debug.Log($"[Spawner] ApplyFromLevel: prefab={(enemyPrefab ? enemyPrefab.name : "<null>")}, interval={spawnIntervalSec:F2}s", this);
+    }
+
+    /// <summary>
+    /// LevelRunner 配置刷怪“时间窗口”（开始延迟/结束前停止）。
+    /// </summary>
+    public void ConfigureWindow(float levelDur, float startDelaySec, float stopEarlySec)
+    {
+        levelDuration = Mathf.Max(0f, levelDur);
+        startDelay    = Mathf.Max(0f, startDelaySec);
+        stopBeforeEnd = Mathf.Max(0f, stopEarlySec);
+
+        elapsed      = 0f;
+        timer        = 0.1f;
+        windowActive = true;
+
+        Debug.Log($"[Spawner] Window configured: startDelay={startDelay}s, stopEarly={stopBeforeEnd}s, levelDur={levelDuration}s", this);
+    }
+
+    /// <summary>
+    /// 停止并复位（LevelRunner 在关卡结束/中止时调用）
+    /// </summary>
+    public void StopAndReset()
+    {
+        windowActive = false;
+        elapsed      = 0f;
+        timer        = 0f;
+    }
+
+    /// <summary>
+    /// 手动设置目标（若运行时切换玩家/代理对象）
+    /// </summary>
+    public void SetTarget(Transform t) => player = t;
+
+    /// <summary>
+    /// 手动生成一只（外部需要时可用）
+    /// </summary>
+    public Enemy SpawnOne()
+    {
+        if (!EnsurePrefab()) return null;
+        if (!spawnArea) { Debug.LogWarning("[Spawner] spawnArea not assigned.", this); return null; }
+        if (!TrySampleSpawnPosition(out var pos)) return null;
+        return SpawnOneAt(pos);
+    }
+
+    /// <summary>
+    /// 手动在指定位置生成一只
+    /// </summary>
+    public Enemy SpawnOneAt(Vector2 worldPos)
+    {
+        if (!EnsurePrefab()) return null;
+
+        var e = Instantiate(enemyPrefab, worldPos, Quaternion.identity);
+
         if (!player)
         {
             var vs = Object.FindFirstObjectByType<ViewerSystem>(FindObjectsInactive.Include);
             if (vs) player = vs.transform;
+            else
+            {
+                var tagged = GameObject.FindWithTag("Player");
+                if (tagged) player = tagged.transform;
+            }
         }
-        e.SetTarget(player);
-        e.SetMoveSpeed(moveSpeed);
+        if (player) e.SetTarget(player);
 
-        timer = spawnInterval;
+        // 不再设置移动速度：由 Enemy 预制体自身字段控制
+        return e;
+    }
+
+    // —— 工具 —— //
+    bool EnsurePrefab()
+    {
+        if (enemyPrefab) return true;
+        if (!warnedMissingPrefab)
+        {
+            Debug.LogWarning("[Spawner] enemyPrefab is NULL. Assign via LevelConfig or Inspector.", this);
+            warnedMissingPrefab = true;
+        }
+        return false;
     }
 
     bool TrySampleSpawnPosition(out Vector2 pos)
@@ -101,10 +181,18 @@ public class EnemySpawner : MonoBehaviour
         Rect rRect = default;
         bool hasSafe = safeArea && TryGetRect(safeArea, out rRect);
 
-        if (!hasSafe || rRect.width <= 0f || rRect.height <= 0f) { pos = SampleInRect(sRect); return true; }
+        if (!hasSafe || rRect.width <= 0f || rRect.height <= 0f)
+        {
+            pos = SampleInRect(sRect);
+            return true;
+        }
 
         rRect = IntersectRect(sRect, rRect);
-        if (rRect.width <= 0f || rRect.height <= 0f) { pos = SampleInRect(sRect); return true; }
+        if (rRect.width <= 0f || rRect.height <= 0f)
+        {
+            pos = SampleInRect(sRect);
+            return true;
+        }
 
         float topH   = Mathf.Max(0f, (sRect.yMax - rRect.yMax));
         float botH   = Mathf.Max(0f, (rRect.yMin - sRect.yMin));
@@ -167,37 +255,6 @@ public class EnemySpawner : MonoBehaviour
         return new Vector2(Random.Range(r.xMin, r.xMax), Random.Range(r.yMin, r.yMax));
     }
 
-    // LevelConfig 注入
-    public void ApplyFromLevel(LevelConfig c)
-    {
-        if (!c) return;
-        enemyPrefab   = c.enemyPrefab;
-        spawnInterval = Mathf.Max(0.05f, c.spawnInterval);
-        warnedMissingPrefab = false;
-
-        Debug.Log($"[Spawner] ApplyFromLevel: prefab={(enemyPrefab? enemyPrefab.name : "<null>")}, interval={spawnInterval}", this);
-    }
-
-    public void ConfigureWindow(float levelDur, float startDelaySec, float stopEarlySec)
-    {
-        levelDuration = Mathf.Max(0f, levelDur);
-        startDelay    = Mathf.Max(0f, startDelaySec);
-        stopBeforeEnd = Mathf.Max(0f, stopEarlySec);
-
-        elapsed      = 0f;
-        timer        = 0.1f;
-        windowActive = true;
-
-        Debug.Log($"[Spawner] Window configured: startDelay={startDelay}s, stopEarly={stopBeforeEnd}s, levelDur={levelDuration}s", this);
-    }
-
-    public void StopAndReset()
-    {
-        windowActive = false;
-        elapsed = 0f;
-        timer = 0f;
-    }
-
 #if UNITY_EDITOR
     void OnDrawGizmosSelected()
     {
@@ -214,7 +271,7 @@ public class EnemySpawner : MonoBehaviour
             var b = safeArea.bounds;
             Gizmos.color = new Color(1f, 0f, 0f, 0.25f);
             Gizmos.DrawCube(b.center, b.size);
-            Gizmos.color = new Color(1f, 0f, 0f, 0.9f);
+            Gizmos.color = new Color(1f, 0f, 0.9f);
             Gizmos.DrawWireCube(b.center, b.size);
         }
     }

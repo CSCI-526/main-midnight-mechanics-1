@@ -12,8 +12,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 86920add50212a3448a7eefb6fde032d, type: 3}
   m_Name: Chain Bolt
   m_EditorClassIdentifier: 
-  projectile: {fileID: 3548425647231183936, guid: 8ccdf450580483f4b986f368bf0f0d17, type: 3}
-  chainSearchRadius: 6
-  chainBaseHops: 1
-  chainLifeTime: 5
-  chainSpreadStepDeg: 8
+  damage: 3
+  bounces: 4
+  searchRadius: 6
+  projectilePrefab: {fileID: 3548425647231183936, guid: 8ccdf450580483f4b986f368bf0f0d17, type: 3}
+  speed: 14
+  lifetime: 5
+  spawnOffset: 0.2

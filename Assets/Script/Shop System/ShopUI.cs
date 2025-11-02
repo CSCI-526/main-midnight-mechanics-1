@@ -54,4 +54,10 @@ public sealed class ShopUI : MonoBehaviour
     }
 
     private void HandleNext() => Hide();
+    
+    
+    public void SetNextInteractable(bool on)
+    {
+        if (nextButton) nextButton.interactable = on;
+    }
 }

@@ -1,67 +1,50 @@
 using UnityEngine;
 using Game.Skills;
 
-/// <summary>
-/// Active skill: fires pellets in a cone around a random base direction each cast.
-/// Pellets = base + (count-1)*step; SpeedUp/DamageUp applied to projectile.
-/// </summary>
-[CreateAssetMenu(menuName = "Game/Skills/Active/Spread Shot")]
+[CreateAssetMenu(menuName = "Game/Skills/Active/Spread Shot (Simple)")]
 public sealed class SpreadShotSkill : ActiveSkillBase
 {
-    [Header("Projectile")]
-    [SerializeField] private SpreadPelletProjectile projectilePrefab;
-
-    [Header("Pellet Count")]
-    [SerializeField] private int basePellets = 3;
-    [SerializeField] private int pelletsPerExtraCount = 1;
+    [Header("Pellets")]
+    [SerializeField] private int   pelletCount  = 5;
+    [SerializeField] private int   pelletDamage = 2;
+    [SerializeField] private float pelletSpeed  = 16f;
 
     [Header("Cone")]
-    [SerializeField, Tooltip("Half-angle of the cone (degrees).")]
-    private float coneHalfAngleDeg = 20f;
-    [SerializeField, Tooltip("Even spacing across cone if true; otherwise random within cone.")]
-    private bool evenDistribution = true;
-    [SerializeField, Tooltip("Extra random jitter (deg) per pellet.")]
-    private float randomJitterDeg = 2f;
+    [SerializeField, Tooltip("半角（度）")] private float coneHalfAngleDeg = 22f;
+    [SerializeField] private bool evenDistribution = true;
 
-    [Header("Spawn")]
-    [SerializeField, Tooltip("Small random position jitter to avoid perfect overlap.")]
-    private float spawnJitterRadius = 0f;
+    [Header("Projectile")]
+    [SerializeField] private SpreadPelletProjectile projectilePrefab;
+    [SerializeField] private float spawnOffset = 0.15f;
 
-    public override void Cast(SkillCastContext ctx, PlayerSkills.SkillStats stats)
+    public override void Cast(SkillCastContext ctx)
     {
-        if (ctx?.Player == null || projectilePrefab == null) return;
+        if (!ctx?.Player || !projectilePrefab) return;
 
-        int pellets = Mathf.Max(1, basePellets + Mathf.Max(0, (stats.count - 1)) * Mathf.Max(0, pelletsPerExtraCount));
-        float speed = (stats.speed > 0f) ? stats.speed : projectilePrefab.DefaultSpeed;
-        int   dmg   = stats.damage;
+        Vector2 origin  = ctx.Player.position;
+        Vector2 baseDir = SkillUtil.AimDirOrRandomUp(origin);              // ★ 关键改动
 
-        Vector2 origin = ctx.Player.position;
+        int   count = Mathf.Max(1, pelletCount);
+        float half  = Mathf.Max(0f, coneHalfAngleDeg);
 
-        // random base direction per cast
-        float baseAngleDeg = Random.Range(0f, 360f);
-        Vector2 baseDir = new Vector2(Mathf.Cos(baseAngleDeg * Mathf.Deg2Rad), Mathf.Sin(baseAngleDeg * Mathf.Deg2Rad));
-
-        for (int i = 0; i < pellets; i++)
+        for (int i = 0; i < count; i++)
         {
             float offsetDeg;
-            if (evenDistribution && pellets > 1)
+            if (evenDistribution && count > 1)
             {
-                float t = (i / (float)(pellets - 1)) * 2f - 1f;  // [-1, +1]
-                offsetDeg = t * coneHalfAngleDeg;
+                float t = (i / (float)(count - 1)) * 2f - 1f;  // [-1, +1]
+                offsetDeg = t * half;
             }
             else
             {
-                offsetDeg = Random.Range(-coneHalfAngleDeg, +coneHalfAngleDeg);
+                offsetDeg = Random.Range(-half, +half);
             }
 
-            if (randomJitterDeg > 0f)
-                offsetDeg += Random.Range(-randomJitterDeg, +randomJitterDeg);
-
             Vector2 dir   = SkillUtil.Rotate(baseDir, offsetDeg).normalized;
-            Vector2 start = origin + (spawnJitterRadius > 0f ? Random.insideUnitCircle * spawnJitterRadius : Vector2.zero);
+            Vector2 start = origin + dir * Mathf.Max(0f, spawnOffset);
 
             var p = Object.Instantiate(projectilePrefab);
-            p.Configure(speed, dmg);
+            p.Configure(pelletSpeed, pelletDamage);
             p.FireDir(start, dir);
         }
     }

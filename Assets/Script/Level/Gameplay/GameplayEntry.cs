@@ -105,7 +105,6 @@ public class GameplayEntry : MonoBehaviour
 
     void OpenShopThen(System.Action next)
     {
-        if (shopPanel) shopPanel.BuildOffers();
         if (shopUI) shopUI.Show(next);
         else next?.Invoke();
     }

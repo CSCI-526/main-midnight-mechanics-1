@@ -91,8 +91,8 @@ MonoBehaviour:
   m_IgnoreLayout: 0
   m_MinWidth: -1
   m_MinHeight: -1
-  m_PreferredWidth: 28
-  m_PreferredHeight: 28
+  m_PreferredWidth: 20
+  m_PreferredHeight: 20
   m_FlexibleWidth: -1
   m_FlexibleHeight: -1
   m_LayoutPriority: 1
@@ -169,7 +169,7 @@ RectTransform:
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
   m_AnchoredPosition: {x: 0, y: 50.000004}
-  m_SizeDelta: {x: 390, y: 65}
+  m_SizeDelta: {x: 333, y: 24.7687}
   m_Pivot: {x: 0.5, y: 1}
 --- !u!114 &1288991920746910206
 MonoBehaviour:
@@ -208,6 +208,7 @@ MonoBehaviour:
   emoteSpacing: 6
   rowSpacing: 4
   extraSidePaddingEm: 0.06
+  badgeHeightScale: 1.1
 --- !u!114 &2146385596772463293
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -329,8 +330,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 25
-  m_fontSizeBase: 25
+  m_fontSize: 18
+  m_fontSizeBase: 18
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18

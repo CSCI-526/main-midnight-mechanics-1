@@ -9,8 +9,14 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a38520d24f66e1042bbd1e9c9996b80d, type: 3}
-  m_Name: Basic Shot
+  m_Script: {fileID: 11500000, guid: 150662ba9a9206541a8e540f5b9342d5, type: 3}
+  m_Name: Explosion
   m_EditorClassIdentifier: 
-  bulletPrefab: {fileID: 4850809910169361065, guid: cf67bc322aa6b5043a762d87dca9bdb0, type: 3}
-  spreadStepDeg: 6
+  damage: 7
+  radius: 3
+  debugShowRing: 1
+  ringLifetime: 0.25
+  ringMaterial: {fileID: 0}
+  ringColor: {r: 1, g: 0.6, b: 0, a: 0.7}
+  ringSegments: 48
+  ringWidth: 0.06

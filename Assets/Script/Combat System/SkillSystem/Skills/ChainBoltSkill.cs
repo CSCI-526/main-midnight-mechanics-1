@@ -1,39 +1,31 @@
 using UnityEngine;
 using Game.Skills;
 
-[CreateAssetMenu(menuName = "Game/Skills/Active/Chain Bolt")]
+[CreateAssetMenu(menuName = "Game/Skills/Active/Chain Bolt (Simple)")]
 public sealed class ChainBoltSkill : ActiveSkillBase
 {
-    [SerializeField] private ChainBoltProjectile projectile;
-    [SerializeField] private float chainSearchRadius = 6f;
-    [SerializeField] private int   chainBaseHops = 1;
-    [SerializeField] private float chainLifeTime = 5f;
-    [SerializeField] private float chainSpreadStepDeg = 8f;
+    [Header("Damage & Chain")]
+    [SerializeField] private int   damage       = 4;   // 每跳伤害
+    [SerializeField] private int   bounces      = 2;   // 弹射次数
+    [SerializeField] private float searchRadius = 6f;  // 下一目标搜索半径
 
-    /// <inheritdoc />
-    public override void Cast(SkillCastContext ctx, PlayerSkills.SkillStats stats)
+    [Header("Projectile")]
+    [SerializeField] private ChainBoltProjectile projectilePrefab;
+    [SerializeField] private float speed    = 14f;
+    [SerializeField] private float lifetime = 5f;
+
+    [Header("Aim")]
+    [SerializeField] private float spawnOffset = 0.2f;
+
+    public override void Cast(SkillCastContext ctx)
     {
-        if (!ctx?.Player || !projectile) return;
+        if (!ctx?.Player || !projectilePrefab) return;
 
-        var nearest = SkillUtil.FindNearestEnemy(ctx.Player.position);
-        if (!nearest) return;
+        Vector2 origin = ctx.Player.position;
+        Vector2 dir    = SkillUtil.AimDirOrRandomUp(origin);                // ★ 关键改动
+        Vector2 start  = origin + dir * Mathf.Max(0f, spawnOffset);
 
-        int count     = Mathf.Max(1, stats.count);
-        int hopBudget = Mathf.Max(0, chainBaseHops + (stats.count - 1));
-        float speed   = Mathf.Max(0.1f, stats.speed);
-
-        float radius = Mathf.Max(0.1f, chainSearchRadius + Mathf.Max(0f, stats.area - 1f));
-        Vector2 baseDir = (nearest.transform.position - ctx.Player.position).normalized;
-        if (baseDir.sqrMagnitude < 1e-6f) baseDir = Vector2.right;
-
-        float half = (count - 1) * 0.5f;
-        for (int i = 0; i < count; i++)
-        {
-            float offset = (i - half) * chainSpreadStepDeg;
-            Vector2 dir  = SkillUtil.Rotate(baseDir, offset);
-
-            var bolt = Object.Instantiate(projectile);
-            bolt.Initialize(ctx.Player.position, dir, speed, hopBudget, radius, chainLifeTime);
-        }
+        var bolt = Object.Instantiate(projectilePrefab);
+        bolt.Initialize(start, dir, speed, bounces, searchRadius, lifetime, damage);
     }
 }

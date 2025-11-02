@@ -38,15 +38,15 @@ public sealed class LiveRewardTicker : MonoBehaviour
     [SerializeField] private float minIntervalClamp  = 0.40f;
     [SerializeField] private float maxIntervalClamp  = 12.0f;
 
-    [Header("Colors")]
-    [SerializeField] private Color nameAmountColor   = new Color(0.90f, 0.95f, 1.00f);
-    [SerializeField] private Color actionTextColor   = new Color(0.85f, 0.85f, 0.95f);
-    [SerializeField] private Color messageTextColor  = new Color(1.00f, 1.00f, 1.00f);
+    // === Only TWO colors ===
+    [Header("Colors (Two-Color Scheme)")]
+    [SerializeField] private Color primaryColor   = new Color(0.90f, 0.95f, 1.00f); // username, $amount, Subscribed!, xN Subscriptions
+    [SerializeField] private Color secondaryColor = new Color(0.85f, 0.85f, 0.95f); // verbs & superchat body: "just", "Donate", "just gifted", message
 
     [Header("Font Sizes")]
-    [SerializeField] private float otherFontSize = 28f;             // 所有常规文本字号
-    [SerializeField] private float superchatMessageFontSize = 22f;  // Superchat 留言字号（更小）
-    [SerializeField] private float headerSizeMul  = 1.15f;          // Superchat 标题相对 otherFontSize 的放大
+    [SerializeField] private float otherFontSize = 28f;             // base font size
+    [SerializeField] private float superchatMessageFontSize = 22f;  // superchat body smaller
+    [SerializeField] private float headerSizeMul  = 1.15f;          // superchat header size multiplier
 
     [Header("Mirror to Chat (optional)")]
     [SerializeField] private ChatFeed chatFeed;
@@ -252,59 +252,57 @@ public sealed class LiveRewardTicker : MonoBehaviour
         return Mathf.Clamp(q, lo, hi);
     }
 
-    string Colorize(string s, Color c)
-    {
-        Color32 c32 = c;
-        string hex = ColorUtility.ToHtmlStringRGBA(c32);
-        return $"<color=#{hex}>{s}</color>";
-    }
-
-    static string Escape(string s)
-    {
-        if (string.IsNullOrEmpty(s)) return string.Empty;
-        return s.Replace("&","&amp;").Replace("<","&lt;").Replace(">","&gt;");
-    }
-
+    // === Two-color formatting ===
     string FormatSub(string username)
     {
-        string u   = Colorize(username, nameAmountColor);
-        string act = Colorize(" just subscribed!", actionTextColor);
-        return u + act;
+        // primary: username + "Subscribed!"
+        // secondary: " just "
+        string u     = Colorize(username, primaryColor);
+        string verb  = Colorize(" just ", secondaryColor);
+        string tail  = Colorize("Subscribed!", primaryColor);
+        return u + verb + tail;
     }
 
     string FormatGifted(string username, int count)
     {
-        string u   = Colorize(username, nameAmountColor);
-        string act = Colorize($" just gifted x{count} subs!", actionTextColor);
-        return u + act;
+        // secondary: " just gifted "
+        // primary: "x{count} Subscriptions"
+        string u     = Colorize(username, primaryColor);
+        string verb  = Colorize(" just gifted ", secondaryColor);
+        string tail  = Colorize($"x{count} Subscriptions", primaryColor);
+        return u + verb + tail;
     }
 
     string FormatDonate(string username, int amount)
     {
-        string u     = Colorize(username, nameAmountColor);
-        string act1  = Colorize(" just donated ", actionTextColor);
-        string money = Colorize($"${amount}", nameAmountColor);
-        string bang  = Colorize("!", actionTextColor);
-        return u + act1 + money + bang;
+        // secondary: " Donate "
+        // primary: username + $"${amount}"
+        string u     = Colorize(username, primaryColor);
+        string verb  = Colorize(" Donate ", secondaryColor);
+        string money = Colorize($"${amount}", primaryColor);
+        return u + verb + money;
     }
 
     string FormatSuperchat(string username, int amount, string message)
     {
+        // header: username(primary) + " Donate "(secondary) + amount(primary)
+        // body: message(secondary), smaller font
         float headerAbs = Mathf.Max(1f, otherFontSize * Mathf.Max(0.1f, headerSizeMul));
         float bodyAbs   = Mathf.Max(1f, superchatMessageFontSize);
 
-        string u     = Colorize(username, nameAmountColor);
-        string act1  = Colorize(" donated ", actionTextColor);
-        string money = Colorize($"${amount}", nameAmountColor);
+        string u     = Colorize(username, primaryColor);
+        string verb  = Colorize(" Donate ", secondaryColor);
+        string money = Colorize($"${amount}", primaryColor);
 
-        string header = $"<size={headerAbs}>{u}{act1}{money}</size>";
-        string body   = Colorize($"<size={bodyAbs}>{Escape(message)}</size>", messageTextColor);
+        string header = $"<size={headerAbs}>{u}{verb}{money}</size>";
+        string body   = Colorize($"<size={bodyAbs}>{Escape(message)}</size>", secondaryColor);
         return header + "\n" + body;
     }
 
+    // === Render / Mirror / Earnings ===
     void StartNext(string richText)
     {
-        tickerText.fontSize = otherFontSize; // 非 superchat 行用此字号，superchat 内部再用 <size=...>
+        tickerText.fontSize = otherFontSize;
         tickerText.text  = richText ?? string.Empty;
         tickerText.alpha = 0f;
         _tFadeIn  = fadeInSeconds;
@@ -329,7 +327,7 @@ public sealed class LiveRewardTicker : MonoBehaviour
     {
         if (!mirrorToChat || !chatFeed) return;
         if (string.IsNullOrEmpty(superchatMsgOrNull))
-            chatFeed.Post(username, $"just donated ${amount}!", donateBadge);
+            chatFeed.Post(username, $"donated ${amount}!", donateBadge);
         else
             chatFeed.Post(username, $"donated ${amount} - {superchatMsgOrNull}", donateBadge);
     }
@@ -408,5 +406,19 @@ public sealed class LiveRewardTicker : MonoBehaviour
         if (val >= 1_000_000)     return $"${val / 1_000_000f:0.##}M";
         if (val >= 1_000)         return $"${val / 1_000f:0.##}K";
         return $"${val:N0}";
+    }
+
+    // === utils ===
+    string Colorize(string s, Color c)
+    {
+        Color32 c32 = c;
+        string hex = ColorUtility.ToHtmlStringRGBA(c32);
+        return $"<color=#{hex}>{s}</color>";
+    }
+
+    static string Escape(string s)
+    {
+        if (string.IsNullOrEmpty(s)) return string.Empty;
+        return s.Replace("&","&amp;").Replace("<","&lt;").Replace(">","&gt;");
     }
 }

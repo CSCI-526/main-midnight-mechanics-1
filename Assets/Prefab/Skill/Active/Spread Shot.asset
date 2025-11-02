@@ -12,7 +12,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a9cfed5569252a54ebff7eafb6afad75, type: 3}
   m_Name: Spread Shot
   m_EditorClassIdentifier: 
+  pelletCount: 5
+  pelletDamage: 3
+  pelletSpeed: 16
+  coneHalfAngleDeg: 22
+  evenDistribution: 1
   projectilePrefab: {fileID: 3621272955931391124, guid: cecd113c4ea77e14fa2212059e3da670, type: 3}
-  basePellets: 3
-  pelletsPerExtraCount: 1
-  spawnJitterRadius: 0
+  spawnOffset: 0.15

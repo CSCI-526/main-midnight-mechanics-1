@@ -2,65 +2,58 @@ using System.Collections.Generic;
 using UnityEngine;
 using Game.Skills;
 
-[CreateAssetMenu(menuName = "Game/Skills/Active/Explosion")]
+[CreateAssetMenu(menuName = "Game/Skills/Active/Explosion (Simple)")]
 public sealed class ExplosionSkill : ActiveSkillBase
 {
     [Header("Explosion")]
-    [SerializeField] private float baseRadius = 2.8f;
-    [SerializeField] private float radiusPerArea = 0.6f;
-    [SerializeField] private float scatterRadius = 6f;
+    [SerializeField] private int   damage = 6;
+    [SerializeField] private float radius = 3.0f;
 
-    [Header("Debug Ring")]
-    [SerializeField] private bool  debugShowRing = true;     // ← 开关
+    [Header("Visual (optional)")]
+    [SerializeField] private bool  debugShowRing = true;
     [SerializeField] private float ringLifetime  = 0.25f;
-    [SerializeField] private Material ringMaterial;          // 可空，默认 Sprites/Default
+    [SerializeField] private Material ringMaterial;
     [SerializeField] private Color   ringColor = new(1f, 0.6f, 0f, 0.7f);
     [SerializeField, Range(12,128)] private int ringSegments = 48;
     [SerializeField] private float   ringWidth = 0.06f;
 
-    public override void Cast(SkillCastContext ctx, PlayerSkills.SkillStats stats)
+    public override void Cast(SkillCastContext ctx)
     {
-        if (ctx?.Player == null) return;
+        if (!ctx?.Player) return;
 
-        int   count  = Mathf.Max(1, stats.count);
-        float radius = Mathf.Max(0.1f, baseRadius + Mathf.Max(0f, (stats.area - 1f)) * Mathf.Max(0f, radiusPerArea));
+        // 优先瞄准最近敌人；没有就炸在玩家附近
+        Vector2 center;
+        var nearest = SkillUtil.FindNearestEnemy(ctx.Player.position);
+        if (nearest) center = nearest.transform.position;
+        else         center = (Vector2)ctx.Player.position;
 
-        for (int i = 0; i < count; i++)
-        {
-            Vector2 center = (Vector2)ctx.Player.position + Random.insideUnitCircle * Mathf.Max(0f, scatterRadius);
+        DamageInCircle_Safe(center, Mathf.Max(0.1f, radius), Mathf.Max(1, damage));
 
-            KillInCircle_Safe(center, radius);
-
-            if (debugShowRing)
-                DrawRing(center, radius, Mathf.Max(0.05f, ringLifetime));
-        }
+        if (debugShowRing) DrawRing(center, Mathf.Max(0.1f, radius), Mathf.Max(0.05f, ringLifetime));
     }
 
-    /// <summary>
-    /// 先快照再击杀，避免在遍历 HashSet 时修改集合导致 InvalidOperationException。
-    /// </summary>
-    private static void KillInCircle_Safe(Vector2 center, float radius)
+    static void DamageInCircle_Safe(Vector2 center, float r, int dmg)
     {
-        float r2 = radius * radius;
-        var victims = new List<Enemy>(64);
-
-        // 先收集
+        float r2 = r * r;
+        var victims = new List<Enemy>(32);
         foreach (var e in Enemy.All)
         {
             if (!e) continue;
-            Vector2 p = e.transform.position;
-            if ((p - center).sqrMagnitude <= r2)
+            if (((Vector2)e.transform.position - center).sqrMagnitude <= r2)
                 victims.Add(e);
         }
 
-        // 再逐个 Kill（会触发集合变动也没问题）
         for (int i = 0; i < victims.Count; i++)
         {
-            if (victims[i]) victims[i].Kill();
+            var v = victims[i];
+            if (!v) continue;
+            var hp = v.GetComponent<EnemyHealth>();
+            if (hp) hp.TakeDamage(dmg);
+            else    v.Kill();
         }
     }
 
-    private void DrawRing(Vector2 center, float radius, float life)
+    void DrawRing(Vector2 center, float r, float life)
     {
         var go = new GameObject("ExplosionRing");
         var lr = go.AddComponent<LineRenderer>();
@@ -75,9 +68,8 @@ public sealed class ExplosionSkill : ActiveSkillBase
         for (int i = 0; i < lr.positionCount; i++)
         {
             float a = i * step;
-            lr.SetPosition(i, center + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * radius);
+            lr.SetPosition(i, center + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * r);
         }
-
         Object.Destroy(go, life);
     }
 }

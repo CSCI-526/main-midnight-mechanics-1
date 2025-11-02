@@ -2,10 +2,6 @@ using UnityEngine;
 using Game.Skills;
 using static SkillLibrary;
 
-/// <summary>
-/// Cast equipped *active* skills when a note is judged as Perfect or Good.
-/// Base attack removed; your "actives from shop" ARE the normal attack now.
-/// </summary>
 public sealed class CombatDirector : MonoBehaviour
 {
     [Header("References")]
@@ -13,26 +9,15 @@ public sealed class CombatDirector : MonoBehaviour
     [SerializeField] private PlayerSkills playerSkills;
     [SerializeField] private SkillLibrary library;
 
-    [Header("Always Cast (optional hidden skills)")]
-    [SerializeField] private ActiveSkillBase[] alwaysCastSkills;
-
     private SkillCastContext _ctx;
 
     void Awake()
     {
-        // Player
         if (!player)
         {
             var vs = Object.FindFirstObjectByType<ViewerSystem>(FindObjectsInactive.Include);
-            if (vs) player = vs.transform;
-            else
-            {
-                var tagged = GameObject.FindWithTag("Player");
-                if (tagged) player = tagged.transform;
-            }
+            player = vs ? vs.transform : GameObject.FindWithTag("Player")?.transform;
         }
-
-        // Other refs
         if (!playerSkills) playerSkills = Object.FindFirstObjectByType<PlayerSkills>(FindObjectsInactive.Include);
         if (!library)      library      = Object.FindFirstObjectByType<SkillLibrary>(FindObjectsInactive.Include);
 
@@ -41,7 +26,7 @@ public sealed class CombatDirector : MonoBehaviour
 
     void OnEnable()
     {
-        HitJudge.OnPerfect += HandleHit;   // ← 成功命中触发普通攻击
+        HitJudge.OnPerfect += HandleHit;
         HitJudge.OnGood    += HandleHit;
     }
 
@@ -51,23 +36,14 @@ public sealed class CombatDirector : MonoBehaviour
         HitJudge.OnGood    -= HandleHit;
     }
 
-    private void HandleHit()
+    void HandleHit()
     {
         if (!player || !playerSkills || !library) return;
-
-        var stats = playerSkills.GetCurrentStats();
-
-        // 可选：每次也顺带施放隐藏技能
-        if (alwaysCastSkills != null)
-            for (int i = 0; i < alwaysCastSkills.Length; i++)
-                alwaysCastSkills[i]?.Cast(_ctx, stats);
-
-        // 把“已装备的主动技能”视为“普通攻击”
-        var actives = playerSkills.Actives;
+        var actives = playerSkills.Actives;   // 仅记录4个已选技能
         for (int i = 0; i < actives.Count; i++)
         {
             var impl = library.GetActiveImpl(actives[i]);
-            if (impl != null) impl.Cast(_ctx, stats);
+            impl?.Cast(_ctx);
         }
     }
 }
