@@ -5,41 +5,40 @@ using UnityEngine;
 [CustomEditor(typeof(RhythmChart))]
 public class RhythmChartEditor : Editor
 {
-    // 尺寸常量（纯数值，不会触发 EditorStyles）
-    private const float RowPadV = 4f;
-    private const float ColGap  = 6f;
+    private const float RowPadV   = 4f;
+    private const float ColGap    = 6f;
     private const float SmallBtnW = 36f;
     private const float IconBtnW  = 22f;
-    private const float SubLblW   = 30f; // "Sub"
-    private const float PreLblW   = 66f; // "Delay ms"
-    private const float IntW      = 50f; // Subdivision 宽
-    private const float MsW       = 70f; // preDelay 宽
-    private const float BarTagW   = 58f; // "Bar N"
+    private const float SubLblW   = 30f;
+    private const float PreLblW   = 66f;
+    private const float IntW      = 50f;
+    private const float MsW       = 70f;
+    private const float BarTagW   = 58f;
 
     public override void OnInspectorGUI()
     {
         var chart = (RhythmChart)target;
-
-        // 在这里（GUI期间）安全获取样式
         var mini = EditorStyles.miniLabel;
 
-        // ===== 顶部参数 =====
+        // Tempo
         EditorGUILayout.LabelField("Tempo (Grid)", EditorStyles.boldLabel);
         chart.bpm         = Mathf.Max(1f, EditorGUILayout.FloatField("BPM", chart.bpm));
         chart.beatsPerBar = Mathf.Max(1,  EditorGUILayout.IntField  ("Beats Per Bar", chart.beatsPerBar));
 
         EditorGUILayout.Space(4);
+        // Offset
         EditorGUILayout.LabelField("Timing Offset (global)", EditorStyles.boldLabel);
         chart.songOffsetSec = EditorGUILayout.DoubleField(new GUIContent("Song Offset (sec)", "正=整体更晚；负=整体更早"), chart.songOffsetSec);
 
         EditorGUILayout.Space(4);
+        // Visual
         EditorGUILayout.LabelField("Note Flight (visual)", EditorStyles.boldLabel);
         chart.defaultLeadTimeSec = Mathf.Max(0.01f, EditorGUILayout.FloatField("Default Lead (sec)", chart.defaultLeadTimeSec));
 
         EditorGUILayout.Space(8);
         EditorGUILayout.LabelField("Bars", EditorStyles.boldLabel);
 
-        // 顶部操作
+        // Top ops
         EditorGUILayout.BeginHorizontal();
         if (GUILayout.Button("Add Bar (x8)", GUILayout.Width(120))) AddBar(chart, 8);
         GUILayout.Space(6);
@@ -66,7 +65,7 @@ public class RhythmChartEditor : Editor
 
         EditorGUILayout.Space(6);
 
-        // ===== Bars 列表 =====
+        // Bars
         if (chart.bars != null)
         {
             for (int b = 0; b < chart.bars.Count; b++)
@@ -76,7 +75,7 @@ public class RhythmChartEditor : Editor
                 EditorGUILayout.BeginVertical("box");
                 GUILayout.Space(RowPadV);
 
-                // —— 第一行：紧凑参数（Bar标签 / Sub / preDelay / 快调 / 删除）——
+                // Row 1: quick params
                 EditorGUILayout.BeginHorizontal();
 
                 GUILayout.Label($"Bar {b}", GUILayout.Width(BarTagW));
@@ -111,21 +110,28 @@ public class RhythmChartEditor : Editor
                         EditorUtility.SetDirty(chart);
                         EditorGUILayout.EndHorizontal();
                         EditorGUILayout.EndVertical();
-                        break; // 列表改变，跳出循环以避免索引错位
+                        break;
                     }
                 }
                 EditorGUILayout.EndHorizontal();
 
                 GUILayout.Space(RowPadV);
 
-                // —— 第二行：槽位按钮 —— //
+                // Row 2: slots (cycle: Empty → Tap → Double → Burst)
                 EnsureLength(ref bar);
                 EditorGUILayout.BeginHorizontal();
                 for (int i = 0; i < bar.slots.Count; i++)
                 {
                     var s = bar.slots[i];
-                    string label = s == RhythmChart.SlotKind.Empty ? "·" : (s == RhythmChart.SlotKind.Tap ? "T" : "D");
-                    if (GUILayout.Button(new GUIContent(label, "Click to cycle: Empty → Tap → Double"), GUILayout.Width(26)))
+                    string label = s switch
+                    {
+                        RhythmChart.SlotKind.Tap    => "T",
+                        RhythmChart.SlotKind.Double => "D",
+                        RhythmChart.SlotKind.Burst  => "B",
+                        _                           => "·"
+                    };
+                    var tip = "Click to cycle: Empty → Tap → Double → Burst(B). 两个 B 依次标记一个 Burst 区间（可跨小节）。";
+                    if (GUILayout.Button(new GUIContent(label, tip), GUILayout.Width(26)))
                     {
                         Undo.RecordObject(chart, "Edit Slot");
                         bar.slots[i] = Cycle(s);
@@ -136,7 +142,6 @@ public class RhythmChartEditor : Editor
                 GUILayout.Space(RowPadV);
                 EditorGUILayout.EndVertical();
 
-                // 写回
                 chart.bars[b] = bar;
             }
         }
@@ -144,12 +149,15 @@ public class RhythmChartEditor : Editor
         if (GUI.changed) EditorUtility.SetDirty(chart);
     }
 
-    // —— 工具函数 —— //
     private static RhythmChart.SlotKind Cycle(RhythmChart.SlotKind s)
     {
-        if (s == RhythmChart.SlotKind.Empty) return RhythmChart.SlotKind.Tap;
-        if (s == RhythmChart.SlotKind.Tap)   return RhythmChart.SlotKind.Double;
-        return RhythmChart.SlotKind.Empty;
+        return s switch
+        {
+            RhythmChart.SlotKind.Empty  => RhythmChart.SlotKind.Tap,
+            RhythmChart.SlotKind.Tap    => RhythmChart.SlotKind.Double,
+            RhythmChart.SlotKind.Double => RhythmChart.SlotKind.Burst,
+            _                           => RhythmChart.SlotKind.Empty,
+        };
     }
 
     private static void AddBar(RhythmChart chart, int subdivision)

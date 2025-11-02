@@ -1,25 +1,26 @@
 using UnityEngine;
 using Game.Skills;
 
-[CreateAssetMenu(menuName = "Game/Skills/Active/Synth")]
+[CreateAssetMenu(menuName = "Game/Skills/Active/Synth (Wavy)")]
 public sealed class SynthSkill : ActiveSkillBase
 {
-    [Header("Guided Beam")]
     [SerializeField] private SynthProjectile projectilePrefab;
-    [SerializeField] private float  duration  = 0.6f;
-    [SerializeField] private float  length    = 7f;
-    [SerializeField] private float  width     = 1.2f;
-    [SerializeField] private int    dps       = 10;
-    [SerializeField] private float  tickRate  = 10f;
-    [SerializeField] private float  aimLerp   = 12f;
+    [SerializeField] private int   damage = 3;
+    [SerializeField] private float speed  = 8f;
+    [SerializeField] private float lifetime = 4f;
+    [SerializeField] private float swayAmplitude = 0.6f; // 左右摆动幅度
+    [SerializeField] private float swayFrequency = 2.5f; // Hz
+    [SerializeField] private float spawnOffset = 0.1f;
 
     public override void Cast(SkillCastContext ctx)
     {
         if (!ctx?.Player || !projectilePrefab) return;
+        Vector2 origin = ctx.Player.position;
+        Vector2 dir    = SkillUtil.AimDirOrRandomUp(origin);
+        Vector2 start  = origin + dir * Mathf.Max(0f, spawnOffset);
 
         var p = Object.Instantiate(projectilePrefab);
-        p.Activate(ctx.Player, Mathf.Max(0.1f, duration),
-            Mathf.Max(0.5f, length), Mathf.Max(0.2f, width),
-            Mathf.Max(1, dps), Mathf.Max(1f, tickRate), Mathf.Max(1f, aimLerp));
+        p.Launch(start, dir, Mathf.Max(1, damage), Mathf.Max(0.1f, speed),
+            Mathf.Max(0.05f, lifetime), Mathf.Max(0f, swayAmplitude), Mathf.Max(0.01f, swayFrequency));
     }
 }

@@ -1146,7 +1146,7 @@ MonoBehaviour:
   runner: {fileID: 1129485089}
   fallbackPack: {fileID: 11400000, guid: 6d36e668379a31f4c805df51ecdb0b92, type: 2}
   sceneFlow: {fileID: 2076442495}
-  shopPanel: {fileID: 0}
+  shopPanel: {fileID: 385548366}
   wallet: {fileID: 204363595}
 --- !u!4 &216524998
 Transform:
@@ -2205,16 +2205,19 @@ MonoBehaviour:
   patternRow: {fileID: 1149592516}
   tapPrefab: {fileID: -335027836583849613, guid: 6bd1a16164862e94598eb172cb19a488, type: 3}
   doublePrefab: {fileID: -335027836583849613, guid: c1dfc3acbdd30ac45ab06fe52a0d56ca, type: 3}
+  burstPrefab: {fileID: -335027836583849613, guid: 547b8ba801f732344aa763ed7d28e390, type: 3}
   prewarmTap: 12
   prewarmDouble: 6
+  prewarmBurst: 4
   spawnLeftPaddingPx: 40
   hitScaleFactor: 1.7
   scaleSeconds: 0.2
   doubleSecondGapSec: 0.08
   judgeLabel: {fileID: 0}
   sfxSource: {fileID: 2145422199}
-  keyPressSfx: {fileID: 8300000, guid: 634be9e79d4f21d4d94dfe54e65254fe, type: 3}
-  keyPressSfxVolume: 0.523
+  keyPressSfx: {fileID: 8300000, guid: 0f6d7b23efcee0647886e9903423848a, type: 3}
+  keyPressSfxVolume: 0.309
+  doubleSfxMultiplier: 2
   rhythmBar: {fileID: 1352646732}
   perfectFlashColor: {r: 0, g: 0.5256064, b: 0, a: 1}
   goodFlashColor: {r: 0.37234485, g: 1, b: 0.332884, a: 1}
@@ -2222,7 +2225,8 @@ MonoBehaviour:
   perfectFlashSeconds: 0.08
   goodFlashSeconds: 0.08
   missFlashSeconds: 0.1
-  viewers: {fileID: 0}
+  viewers: {fileID: 1170058757}
+  forceBurstCenterAnchors: 1
 --- !u!114 &385548357
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4431,7 +4435,7 @@ Transform:
   m_GameObject: {fileID: 934217702}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -80.638405, y: -11.495238, z: 71.05318}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -4726,7 +4730,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &968762600
 RectTransform:
   m_ObjectHideFlags: 0

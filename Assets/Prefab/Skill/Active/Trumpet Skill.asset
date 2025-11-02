@@ -13,8 +13,8 @@ MonoBehaviour:
   m_Name: Trumpet Skill
   m_EditorClassIdentifier: 
   projectilePrefab: {fileID: 3276779248143308876, guid: f9b52131c034a4d4ea429f125df756e1, type: 3}
+  damage: 1
   speed: 18
-  damage: 12
-  steer: 6
-  lifeTime: 3.5
+  interval: 0.07
+  spreadDeg: 6
   spawnOffset: 0.15

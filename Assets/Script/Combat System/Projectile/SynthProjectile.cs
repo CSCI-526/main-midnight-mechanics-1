@@ -1,72 +1,60 @@
-using System.Collections.Generic;
 using UnityEngine;
-using Game.Skills; 
 
-[RequireComponent(typeof(BoxCollider2D))]
+[RequireComponent(typeof(Rigidbody2D), typeof(Collider2D))]
 public sealed class SynthProjectile : ProjectileBase
 {
-    Transform _follow;
-    float _dur, _t;
-    float _length, _width;
-    int _dps;
-    float _tickRate;
-    float _aimLerp;
+    [SerializeField] private bool useTrigger = true;
 
-    BoxCollider2D _box;
-    readonly Dictionary<Enemy, float> _nextTick = new();
+    Rigidbody2D _rb;
+    Vector2 _forward, _right, _startPos;
+    float _speed, _life, _amp, _freq, _t;
+    int _damage;
 
     void Awake()
     {
-        _box = GetComponent<BoxCollider2D>();
-        if (_box) { _box.isTrigger = true; _box.size = new Vector2(4f, 1f); _box.offset = new Vector2(2f, 0f); }
+        _rb = GetComponent<Rigidbody2D>();
+        if (_rb)
+        {
+            _rb.gravityScale = 0f;
+            _rb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
+        }
+        var col = GetComponent<Collider2D>();
+        if (col) col.isTrigger = useTrigger;
     }
 
-    public void Activate(Transform follow, float duration, float length, float width, int dps, float tickRate, float aimLerp)
+    public void Launch(Vector2 start, Vector2 dir, int damage, float speed, float life, float amplitude, float frequency)
     {
-        _follow = follow; _dur = duration; _length = length; _width = width;
-        _dps = dps; _tickRate = tickRate; _aimLerp = aimLerp;
+        _startPos = start;
+        transform.position = start;
+
+        _forward = dir.sqrMagnitude < 1e-6f ? Vector2.up : dir.normalized;
+        _right   = new Vector2(_forward.y, -_forward.x); // 正交方向
+        _damage  = damage;
+        _speed   = Mathf.Max(0.1f, speed);
+        _life    = Mathf.Max(0.05f, life);
+        _amp     = Mathf.Max(0f, amplitude);
+        _freq    = Mathf.Max(0.01f, frequency);
         _t = 0f;
-        if (_box)
-        {
-            _box.size = new Vector2(_length, _width);
-            _box.offset = new Vector2(_length * 0.5f, 0f);
-        }
-        transform.position = follow ? follow.position : Vector3.zero;
     }
 
     void Update()
     {
-        if (!_follow) { Destroy(gameObject); return; }
-
+        if ((_life -= Time.deltaTime) <= 0f) { Destroy(gameObject); return; }
         _t += Time.deltaTime;
-        if (_t >= _dur) { Destroy(gameObject); return; }
 
-        transform.position = _follow.position;
+        // 中心轨迹（不会累加偏移）
+        Vector2 center = _startPos + _forward * (_speed * _t);
+        float sway = Mathf.Sin(_t * Mathf.PI * 2f * _freq) * _amp;
+        transform.position = center + _right * sway;
+    }
 
-        var target = SkillUtil.FindNearestEnemy(_follow.position);
-        Vector2 wantDir = target ? ((Vector2)target.transform.position - (Vector2)_follow.position).normalized : Vector2.up;
-        Vector2 curDir  = transform.right;
-        Vector2 newDir  = Vector2.Lerp(curDir, wantDir, Mathf.Clamp01(_aimLerp * Time.deltaTime)).normalized;
-        transform.right = newDir;
-
-        float perTick = _dps / Mathf.Max(1f, _tickRate);
-        float interval = 1f / Mathf.Max(1f, _tickRate);
-
-        foreach (var e in Enemy.All)
-        {
-            if (!e) continue;
-            Vector2 local = (Vector2)(Quaternion.Inverse(transform.rotation) * (e.transform.position - transform.position));
-            if (local.x < 0f || local.x > _length) continue;
-            if (Mathf.Abs(local.y) > _width * 0.5f) continue;
-
-            float now = Time.unscaledTime;
-            if (!_nextTick.TryGetValue(e, out float next) || now >= next)
-            {
-                _nextTick[e] = now + interval;
-                var hp = e.GetComponent<EnemyHealth>();
-                if (hp) hp.TakeDamage(Mathf.Max(1, Mathf.RoundToInt(perTick)));
-                else    e.Kill();
-            }
-        }
+    void OnTriggerEnter2D(Collider2D c)
+    {
+        if (!useTrigger) return;
+        var e = c.GetComponentInParent<Enemy>();
+        if (!e) return;
+        var hp = e.GetComponent<EnemyHealth>();
+        if (hp) hp.TakeDamage(_damage); else e.Kill();
+        Destroy(gameObject);
     }
 }

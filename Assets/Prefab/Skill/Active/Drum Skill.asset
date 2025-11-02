@@ -13,7 +13,6 @@ MonoBehaviour:
   m_Name: Drum Skill
   m_EditorClassIdentifier: 
   projectilePrefab: {fileID: 8984801459361849164, guid: d36ea8cc6e57bc7488559faaf080f5e6, type: 3}
-  damage: 6
-  startRadius: 0.25
-  endRadius: 3
-  duration: 0.22
+  damage: 2
+  radius: 3
+  vfxLifetime: 0.25

@@ -1,25 +1,29 @@
 using UnityEngine;
 using Game.Skills;
 
-[CreateAssetMenu(menuName = "Game/Skills/Active/Acoustic Guitar")]
+[CreateAssetMenu(menuName = "Game/Skills/Active/Acoustic Guitar (Split)")]
 public sealed class AcousticGuitarSkill : ActiveSkillBase
 {
-    [Header("Chord Slash (Arc)")]
     [SerializeField] private AcousticGuitarProjectile projectilePrefab;
-    [SerializeField] private float radius     = 2.6f;
-    [SerializeField] private float arcDegrees = 100f;
-    [SerializeField] private float duration   = 0.22f;
-    [SerializeField] private int   damage     = 6;
+    [SerializeField] private int   damageMain   = 4;
+    [SerializeField] private float speedMain    = 12f;
+    [SerializeField] private float lifeMain     = 4f;
+
+    [Header("Split")]
+    [SerializeField] private int   shardCount   = 4;
+    [SerializeField] private int   shardDamage  = 2;
+    [SerializeField] private float shardSpeed   = 13f;
+    [SerializeField] private float shardLife    = 2.5f;
+    [SerializeField] private float spawnOffset  = 0.12f;
 
     public override void Cast(SkillCastContext ctx)
     {
         if (!ctx?.Player || !projectilePrefab) return;
-
         Vector2 origin = ctx.Player.position;
-        Vector2 dir    = SkillUtil.AimDirOrRandomUp(origin);
+        Vector2 dir = SkillUtil.AimDirOrRandomUp(origin);
+        Vector2 start = origin + dir * spawnOffset;
 
         var p = Object.Instantiate(projectilePrefab);
-        p.Sweep(origin, dir, Mathf.Max(0.5f, radius), Mathf.Max(10f, arcDegrees),
-            Mathf.Max(0.05f, duration), Mathf.Max(1, damage));
+        p.Fire(start, dir, damageMain, speedMain, lifeMain, false, shardCount, shardDamage, shardSpeed, shardLife);
     }
 }

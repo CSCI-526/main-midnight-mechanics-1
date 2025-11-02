@@ -1,62 +1,51 @@
-using System.Collections.Generic;
 using UnityEngine;
 
-[RequireComponent(typeof(BoxCollider2D))]
+[RequireComponent(typeof(Rigidbody2D), typeof(Collider2D))]
 public sealed class VocalProjectile : ProjectileBase
 {
-    BoxCollider2D _box;
-    Vector2 _origin;
-    Vector2 _dir;
-    float _maxLen, _width, _growTime, _t;
-    int _damage;
-    float _knock;
+    [SerializeField] private bool  useTrigger = true;
+    [SerializeField] private float minDirLen  = 1e-6f;
 
-    readonly HashSet<Enemy> _hit = new();
+    Rigidbody2D _rb;
+    Vector2 _dir;
+    float _speed, _life;
+    int _damage;
 
     void Awake()
     {
-        _box = GetComponent<BoxCollider2D>();
-        if (_box) { _box.isTrigger = true; _box.size = new Vector2(0.1f, 0.1f); }
+        _rb = GetComponent<Rigidbody2D>();
+        if (_rb) { _rb.gravityScale = 0f; _rb.collisionDetectionMode = CollisionDetectionMode2D.Continuous; }
+        var col = GetComponent<Collider2D>(); if (col) col.isTrigger = useTrigger;
+        // 提示：把 Collider2D 做得“更大”（比如 Capsule/Box）以体现“巨大弹体”
     }
 
-    public void Launch(Vector2 origin, Vector2 dir, float maxLen, float width, float growTime, int damage, float knockback)
+    public void Fire(Vector2 start, Vector2 dir, int damage, float speed, float life)
     {
-        _origin = origin; _dir = dir.sqrMagnitude < 1e-6f ? Vector2.up : dir.normalized;
-        _maxLen = maxLen; _width = width; _growTime = growTime; _damage = damage; _knock = knockback;
-        transform.position = origin;
-        transform.right = _dir;
-        _t = 0f;
-        if (_box)
-        {
-            _box.size = new Vector2(0.1f, Mathf.Max(0.1f, _width));
-            _box.offset = new Vector2(_box.size.x * 0.5f, 0f);
-        }
+        transform.position = start;
+        _dir = dir.sqrMagnitude < minDirLen ? Vector2.right : dir.normalized;
+        _damage = damage; _speed = speed; _life = life;
+        if (_rb) _rb.linearVelocity = _dir * _speed;
     }
 
     void Update()
     {
-        _t += Time.deltaTime;
-        float k = Mathf.Clamp01(_t / _growTime);
-        float len = Mathf.Lerp(0.1f, _maxLen, k);
-        if (_box)
-        {
-            _box.size = new Vector2(len, Mathf.Max(0.1f, _width));
-            _box.offset = new Vector2(len * 0.5f, 0f);
-        }
-        if (k >= 1f) Destroy(gameObject);
+        if ((_life -= Time.deltaTime) <= 0f) { Destroy(gameObject); return; }
+        if (_rb) _rb.linearVelocity = _dir * _speed;
     }
 
-    void OnTriggerEnter2D(Collider2D other)
+    void OnTriggerEnter2D(Collider2D c)
     {
-        var e = other ? other.GetComponentInParent<Enemy>() : null;
-        if (!e || _hit.Contains(e)) return;
-        _hit.Add(e);
+        if (!useTrigger) return;
+        var e = c.GetComponentInParent<Enemy>(); if (!e) return;
+        var hp = e.GetComponent<EnemyHealth>(); if (hp) hp.TakeDamage(_damage); else e.Kill();
+        // 穿透：不销毁
+    }
 
-        var hp = e.GetComponent<EnemyHealth>();
-        if (hp) hp.TakeDamage(_damage);
-        else    e.Kill();
-
-        var rb = e.GetComponent<Rigidbody2D>();
-        if (rb) rb.AddForce((e.transform.position - transform.position).normalized * _knock, ForceMode2D.Impulse);
+    void OnCollisionEnter2D(Collision2D c)
+    {
+        if (useTrigger) return;
+        var e = c.collider.GetComponentInParent<Enemy>(); if (!e) return;
+        var hp = e.GetComponent<EnemyHealth>(); if (hp) hp.TakeDamage(_damage); else e.Kill();
+        // 穿透：不销毁
     }
 }

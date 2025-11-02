@@ -1,45 +1,36 @@
 using UnityEngine;
-using Game.Skills; 
 
+[RequireComponent(typeof(Rigidbody2D), typeof(Collider2D))]
 public sealed class TrumpetProjectile : ProjectileBase
 {
-    Transform _target;
-    Vector2 _dir;
-    float _speed, _steer, _life, _age;
-    int _damage;
+    [SerializeField] private bool  useTrigger = true;
+    [SerializeField] private float lifeTime   = 3.5f;
+    [SerializeField] private float minDirLen  = 1e-6f;
 
-    [SerializeField] private float minDirLen = 1e-6f;
-    [SerializeField] private float hitRadius = 0.4f;
+    Rigidbody2D _rb;
+    int _damage; float _speed; Vector2 _dir;
 
-    public void Launch(Vector2 start, Vector2 dir, Enemy target, float speed, float steer, float lifeTime, int damage)
+    void Awake()
     {
-        transform.position = start;
-        _dir = dir.sqrMagnitude < minDirLen ? Vector2.up : dir.normalized;
-        _target = target ? target.transform : null;
-        _speed = speed; _steer = steer; _life = lifeTime; _damage = damage; _age = 0f;
+        _rb = GetComponent<Rigidbody2D>();
+        if (_rb) { _rb.gravityScale = 0f; _rb.collisionDetectionMode = CollisionDetectionMode2D.Continuous; }
+        var col = GetComponent<Collider2D>(); if (col) col.isTrigger = useTrigger;
     }
 
-    void Update()
+    public void Fire(Vector2 start, Vector2 dir, int damage, float speed)
     {
-        _age += Time.deltaTime;
-        if (_age >= _life) { Destroy(gameObject); return; }
+        transform.position = start;
+        _dir = dir.sqrMagnitude < minDirLen ? Vector2.right : dir.normalized;
+        _damage = damage; _speed = speed;
+        if (_rb) _rb.linearVelocity = _dir * _speed;
+        Destroy(gameObject, Mathf.Max(0.05f, lifeTime));
+    }
 
-        if (_target)
-        {
-            Vector2 want = ((Vector2)_target.position - (Vector2)transform.position).normalized;
-            _dir = Vector2.Lerp(_dir, want, Mathf.Clamp01(_steer * Time.deltaTime)).normalized;
-        }
-
-        transform.position += (Vector3)(_dir * _speed * Time.deltaTime);
-        transform.right = _dir;
-
-        var nearest = SkillUtil.FindNearestEnemy(transform.position);
-        if (nearest && ((Vector2)(nearest.transform.position) - (Vector2)transform.position).sqrMagnitude <= hitRadius * hitRadius)
-        {
-            var hp = nearest.GetComponent<EnemyHealth>();
-            if (hp) hp.TakeDamage(_damage);
-            else    nearest.Kill();
-            Destroy(gameObject);
-        }
+    void OnTriggerEnter2D(Collider2D c)
+    {
+        if (!useTrigger) return;
+        var e = c.GetComponentInParent<Enemy>(); if (!e) return;
+        var hp = e.GetComponent<EnemyHealth>(); if (hp) hp.TakeDamage(_damage); else e.Kill();
+        Destroy(gameObject);
     }
 }

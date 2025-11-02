@@ -30,9 +30,11 @@ public class LevelRunner : MonoBehaviour
     public float ElapsedRealtime { get; private set; }
     public float Progress01 => LevelDuration > 0f ? Mathf.Clamp01(ElapsedRealtime / LevelDuration) : 0f;
 
-    // —— 内部状态 ——
+    // —— 内部状态 —— //
     List<RhythmChart.ChartEvent> timeline;
+    List<RhythmChart.BurstRange> burstTimeline;   // ★ 新增
     int   cursor;
+    int   cursorBurst;                            // ★ 新增
     bool  running;
 
     float  lead;
@@ -40,9 +42,12 @@ public class LevelRunner : MonoBehaviour
     double musicStartDsp;
     bool   musicScheduled;
 
-    // —— 漂移跟踪 ——
+    // —— 漂移跟踪 —— //
     double driftLPF;
     double nextDriftLogDsp;
+    
+    double pausedDspAccum;   // 累加的暂停时长（DSP时间）
+    double pauseStartDsp;
 
     void OnEnable()
     {
@@ -52,11 +57,14 @@ public class LevelRunner : MonoBehaviour
         if (!gameOverUI) gameOverUI = FindFirstObjectByType<GameOverUI>(FindObjectsInactive.Include);
 
         if (viewers) viewers.OnDepleted += HandleGameOver;
+        
+        GamePause.OnPauseChanged += OnPauseChanged;
     }
 
     void OnDisable()
     {
         if (viewers) viewers.OnDepleted -= HandleGameOver;
+        GamePause.OnPauseChanged -= OnPauseChanged;
     }
 
     public void Apply(LevelConfig level)
@@ -74,10 +82,15 @@ public class LevelRunner : MonoBehaviour
         // Pattern 初始化
         pattern.ResetForNewLevel();
         pattern.EnableChartMode(true);
+        
+        pausedDspAccum = 0.0;
+        pauseStartDsp  = 0.0;
 
         // 生成时间轴
-        timeline = Current.chart.BuildTimeline();
-        cursor   = 0;
+        timeline      = Current.chart.BuildTimeline();
+        burstTimeline = Current.chart.BuildBurstTimeline();   // ★ 新增
+        cursor        = 0;
+        cursorBurst   = 0;                                    // ★ 新增
 
         // 领跑时间
         lead = Mathf.Max(0.01f, Current.chart.defaultLeadTimeSec);
@@ -86,14 +99,14 @@ public class LevelRunner : MonoBehaviour
         LevelDuration   = Mathf.Max(1f, Current.levelDurationSeconds);
         ElapsedRealtime = 0f;
 
-        // —— DSP 预卷（lead 秒） ——
+        // —— DSP 预卷（lead 秒） —— //
         double dspNow        = AudioSettings.dspTime;
         double extraSilence  = Mathf.Max(0f, Current.bgmDelaySec);
         chartStartDsp        = dspNow + lead + extraSilence;
         musicStartDsp        = chartStartDsp;
         musicScheduled       = false;
 
-        // —— 漂移复位 ——
+        // —— 漂移复位 —— //
         driftLPF        = 0.0;
         nextDriftLogDsp = dspNow + debugLogIntervalSec;
 
@@ -117,10 +130,15 @@ public class LevelRunner : MonoBehaviour
 
         running = true;
         OnLevelApplied?.Invoke();
+
+        // 可选：调试确认 Burst 段数
+        // Debug.Log($"[LevelRunner] Burst spans: {burstTimeline?.Count ?? 0}");
     }
 
     void Update()
     {
+        if (!running || GamePause.IsPaused) return;
+        
         if (!running) return;
 
         // 观众归零：双保险
@@ -129,7 +147,7 @@ public class LevelRunner : MonoBehaviour
         // 实时间推进
         ElapsedRealtime = Mathf.Min(ElapsedRealtime + Time.deltaTime, LevelDuration);
 
-        // —— 时钟 & 漂移测量 ——
+        // —— 时钟 & 漂移测量 —— //
         double dspNow   = AudioSettings.dspTime;
         double expected = dspNow - musicStartDsp;
 
@@ -149,7 +167,7 @@ public class LevelRunner : MonoBehaviour
 
         double chartNow = (dspNow - chartStartDsp) - (useSampleClock ? driftLPF : 0.0);
 
-        // —— 投喂事件 ——
+        // —— 投喂 Tap/Double —— //
         while (cursor < (timeline?.Count ?? 0))
         {
             var ev = timeline[cursor];
@@ -164,10 +182,22 @@ public class LevelRunner : MonoBehaviour
             else break;
         }
 
+        // —— 投喂 Burst（区间，按 startSec 预卷）—— ★ 新增 //
+        while (cursorBurst < (burstTimeline?.Count ?? 0))
+        {
+            var span = burstTimeline[cursorBurst];
+            if (span.startSec <= chartNow + lead)
+            {
+                pattern.EnqueueBurst(span.startSec, span.endSec, lead);
+                cursorBurst++;
+            }
+            else break;
+        }
+
         // 驱动 Pattern
         pattern.SetChartNow(chartNow);
 
-        // —— 关卡自然结束 ——
+        // —— 关卡自然结束 —— //
         if (ElapsedRealtime >= LevelDuration)
         {
             running = false;
@@ -182,7 +212,6 @@ public class LevelRunner : MonoBehaviour
 
         if (spawner) spawner.StopAndReset();
         Enemy.KillAll();
-        // ★ 改为按基类统一清理所有弹体
         var projs = FindObjectsByType<ProjectileBase>(FindObjectsInactive.Include, FindObjectsSortMode.None);
         for (int i = 0; i < projs.Length; i++) if (projs[i]) Destroy(projs[i].gameObject);
 
@@ -198,7 +227,7 @@ public class LevelRunner : MonoBehaviour
         if (pattern) pattern.ResetForNewLevel();
     }
 
-    // —— 观众归零 → GameOver 流程 ——
+    // —— 观众归零 → GameOver 流程 —— //
     void HandleGameOver()
     {
         if (!running) return;
@@ -235,6 +264,22 @@ public class LevelRunner : MonoBehaviour
         else
         {
             Debug.LogWarning("[LevelRunner] GameOverUI 未设置：将仅执行清场，不显示面板。");
+        }
+    }
+    
+    void OnPauseChanged(bool on)
+    {
+        double now = AudioSettings.dspTime;
+
+        if (on)
+        {
+            pauseStartDsp = now;
+            if (music) music.Pause(); // 与 AudioListener.pause 双保险
+        }
+        else
+        {
+            pausedDspAccum += (now - pauseStartDsp);
+            if (music) music.UnPause();
         }
     }
 }

@@ -13,8 +13,9 @@ MonoBehaviour:
   m_Name: Keyboard Skill
   m_EditorClassIdentifier: 
   projectilePrefab: {fileID: -2790446739985032054, guid: 1b9e0555f08331048a54d171c6743228, type: 3}
-  keyCount: 5
-  keySpeed: 16
-  keyDamage: 2
-  coneHalfAngle: 18
+  damage: 2
+  speed: 4
+  lifetime: 4
+  orbitRadius: 0.8
+  orbitRevsPerSec: 2
   spawnOffset: 0.1

@@ -13,9 +13,9 @@ MonoBehaviour:
   m_Name: Electric Guitar Skill
   m_EditorClassIdentifier: 
   projectilePrefab: {fileID: 1392977006101595185, guid: b0f94b8308d4fac478e9a492b504455d, type: 3}
-  damage: 4
-  bounces: 2
-  searchRadius: 6
+  damage: 1
+  bounces: 3
+  searchRadius: 10
   speed: 14
   lifetime: 5
   spawnOffset: 0.2

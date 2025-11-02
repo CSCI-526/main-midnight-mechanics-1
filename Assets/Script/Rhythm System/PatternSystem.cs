@@ -17,10 +17,12 @@ public class PatternSystem : MonoBehaviour
     [Header("Prefabs")]
     [SerializeField] private PatternCell tapPrefab;
     [SerializeField] private PatternCell doublePrefab;
+    [SerializeField] private PatternCell burstPrefab;     // 9-sliced Image，自动拉伸
 
     [Header("Pool Prewarm")]
     [SerializeField] private int prewarmTap = 12;
     [SerializeField] private int prewarmDouble = 6;
+    [SerializeField] private int prewarmBurst = 2;
 
     [Header("Visual Spawn")]
     [SerializeField] private float spawnLeftPaddingPx = 40f;
@@ -39,6 +41,7 @@ public class PatternSystem : MonoBehaviour
     [SerializeField] private AudioSource sfxSource;
     [SerializeField] private AudioClip   keyPressSfx;
     [SerializeField, Range(0f,1f)] private float keyPressSfxVolume = 1f;
+    [SerializeField, Range(0.1f,4f)] private float doubleSfxMultiplier = 2f; // ★ Double更响
 
     [Header("Rhythm Bar Flash")]
     [SerializeField] private Image rhythmBar;
@@ -51,6 +54,9 @@ public class PatternSystem : MonoBehaviour
 
     [Header("Viewers")]
     [SerializeField] private ViewerSystem viewers; // 如空则自动查找
+
+    [Header("Burst Safety")]
+    [SerializeField] private bool forceBurstCenterAnchors = true; // ★ 运行时把 Burst 的 X 锚点/枢轴强制居中
 
     // —— 外部驱动 —— 
     bool   chartMode  = true;
@@ -81,9 +87,26 @@ public class PatternSystem : MonoBehaviour
         public float animT;
     }
 
-    readonly List<Note> _notes = new();
+    // ★ Burst 数据
+    struct Burst
+    {
+        public PatternCell widget;
+        public double startSec;
+        public double endSec;
+        public float  leadTimeSec;
+        public double departStartSec;  // startSec - lead
+        public double departEndSec;    // endSec - lead
+        public float  baseScale;
+
+        public bool   alive;
+    }
+
+    readonly List<Note>  _notes = new();
+    readonly List<Burst> _bursts = new();
+
     readonly Queue<PatternCell> _poolTap    = new();
     readonly Queue<PatternCell> _poolDouble = new();
+    readonly Queue<PatternCell> _poolBurst  = new();
 
     float _innerHalf;
     float _lastTrackW = -1f;
@@ -102,12 +125,12 @@ public class PatternSystem : MonoBehaviour
         RecalcInnerHalf();
         PrewarmPools();
 
-        if (!tapPrefab || !doublePrefab)
+        if (!tapPrefab || !doublePrefab || !burstPrefab)
         {
-            Debug.LogError("[PatternSystem] tapPrefab / doublePrefab 未设置。", this);
+            Debug.LogError("[PatternSystem] Prefab 未设置（tap/double/burst）。", this);
             enabled = false; return;
         }
-        if (!tapPrefab.ValidateSetup(true) || !doublePrefab.ValidateSetup(true))
+        if (!tapPrefab.ValidateSetup(true) || !doublePrefab.ValidateSetup(true) || !burstPrefab.ValidateSetup(true))
         {
             Debug.LogError("[PatternSystem] 某个 PatternCell Prefab 的必填项未设置（Rect/Icon/Hit/Miss）。", this);
             enabled = false; return;
@@ -124,20 +147,20 @@ public class PatternSystem : MonoBehaviour
 
     void Update()
     {
+        
+        if (GamePause.IsPaused) return;
         if (!enabled || !chartMode) return;
         if (!ZonesReady()) return;
 
         EnsurePatternRowMatchesTrack();
         RecalcInnerHalf();
 
-        var pressed = GetPlayableKeysDownThisFrame();
-        if (pressed.Count > 0) PlayKeyPressSfx();
-
+        var pressed = GetPlayableKeysDownThisFrame(); // ★ 不再“按键即播音效”
         float centerRowX = GetPerfectCenterXInRow();
         float spawnLeftX = GetSpawnLeftX();
         float missRightT = GetZoneRightXInTrack(zoneMiss);
 
-        // 推进位置 & 右侧越界自动 Miss
+        // 推进 Note 位置 & 右侧越界自动 Miss
         for (int i = 0; i < _notes.Count; i++)
         {
             var n = _notes[i];
@@ -167,11 +190,50 @@ public class PatternSystem : MonoBehaviour
             }
         }
 
-        // 输入：Double 优先
-        for (int i = 0; i < pressed.Count; i++)
-            HandleKey(pressed[i]);
+        // 推进 Burst 左右边缘 & 拉伸宽度
+        for (int i = _bursts.Count - 1; i >= 0; i--)
+        {
+            var b = _bursts[i];
+            if (!b.alive || !b.widget) { _bursts.RemoveAt(i); continue; }
 
-        AnimateAndCull();
+            float t0 = (float)((chartNowSec - b.departStartSec) / b.leadTimeSec);
+            float t1 = (float)((chartNowSec - b.departEndSec)   / b.leadTimeSec);
+
+            float x0 = Mathf.LerpUnclamped(spawnLeftX, centerRowX, t0);
+            float x1 = Mathf.LerpUnclamped(spawnLeftX, centerRowX, t1);
+
+            SetBurstRectBetween(b.widget.Rect, x0, x1);
+
+            // 右边彻底越过 Miss 右界并尾巴过去 → 回收
+            float xEndTrack = Mathf.Max(GetRectLeftXInTrack(b.widget.Rect), GetRectRightXInTrack(b.widget.Rect));
+            if (xEndTrack > missRightT && chartNowSec > b.endSec)
+            {
+                ReturnBurst(b.widget);
+                _bursts.RemoveAt(i);
+            }
+            else
+            {
+                _bursts[i] = b;
+            }
+        }
+
+        // 输入判定
+        for (int i = 0; i < pressed.Count; i++)
+        {
+            var key = pressed[i];
+            bool consumed = false;
+
+            // Double 优先
+            consumed = HandleKey_Double(key);
+            if (!consumed)
+                consumed = HandleKey_Tap(key);
+
+            // 若仍未消耗，尝试 Burst（Good/Perfect 内才计）
+            if (!consumed)
+                HandleKey_Burst(key);
+        }
+
+        AnimateAndCullNotes();
         TickBarFlash();
     }
 
@@ -227,99 +289,176 @@ public class PatternSystem : MonoBehaviour
         });
     }
 
+    // ★ 新：投喂 Burst（长条）
+    public void EnqueueBurst(double startSec, double endSec, float leadTimeSec)
+    {
+        if (endSec < startSec) { var t = startSec; startSec = endSec; endSec = t; }
+
+        var w = GetBurstCell();
+        w.transform.SetParent(patternRow, false);
+        w.gameObject.SetActive(true);
+        w.ResetVisual();
+
+        // ★ 运行时“防呆”：把X锚点 & pivot 拉回中心，避免 sizeDelta.x 无效
+        if (forceBurstCenterAnchors && w && w.Rect)
+        {
+            var rt = w.Rect;
+            if (rt.anchorMin.x != 0.5f || rt.anchorMax.x != 0.5f)
+            {
+                rt.anchorMin = new Vector2(0.5f, rt.anchorMin.y);
+                rt.anchorMax = new Vector2(0.5f, rt.anchorMax.y);
+            }
+            if (!Mathf.Approximately(rt.pivot.x, 0.5f))
+            {
+                var pv = rt.pivot; pv.x = 0.5f; rt.pivot = pv;
+            }
+        }
+
+        // 置顶，避免被 Tap/Double 遮住
+        w.transform.SetAsLastSibling();
+
+        float lead = Mathf.Max(0.01f, leadTimeSec);
+
+        var b = new Burst
+        {
+            widget         = w,
+            startSec       = startSec,
+            endSec         = endSec,
+            leadTimeSec    = lead,
+            departStartSec = startSec - lead,
+            departEndSec   = endSec   - lead,
+            baseScale      = w.InitialScale,
+            alive          = true
+        };
+        _bursts.Add(b);
+
+        // 初始位置（避免一开始0宽）
+        float spawnLeftX = GetSpawnLeftX();
+        SetBurstRectBetween(w.Rect, spawnLeftX, spawnLeftX);
+    }
+
     // ===== 输入判定 =====
-    void HandleKey(KeyCode key)
+    bool HandleKey_Tap(KeyCode key)
     {
-        // Double
-        int iDouble = PickRightmostInZones(NoteType.Double, out JudgeKind zoneKindDouble);
-        if (iDouble >= 0)
-        {
-            var n = _notes[iDouble];
-            if (!n.dblAwaiting)
-            {
-                n.dblAwaiting = true;
-                n.dblFirstKey = key;
-                n.dblExpireU  = Time.unscaledTime + doubleSecondGapSec;
-                _notes[iDouble] = n;
-                SetLabel("DOUBLE…");
-                return;
-            }
-            else
-            {
-                if (key != n.dblFirstKey && Time.unscaledTime <= n.dblExpireU && IsNoteInAnyZone(iDouble))
-                {
-                    n.judged = true;
-                    n.judgedKind = zoneKindDouble == JudgeKind.Perfect ? JudgeKind.Perfect :
-                                   zoneKindDouble == JudgeKind.Good    ? JudgeKind.Good    : JudgeKind.Miss;
-
-                    if (n.judgedKind == JudgeKind.Miss)
-                    {
-                        n.widget.SetWrong();
-                        SetLabel("MISS");
-                        FlashBar(JudgeKind.Miss);
-                        ApplyViewerDelta(JudgeKind.Miss);
-                        HitJudge.RaiseMiss();
-                    }
-                    else
-                    {
-                        n.widget.SetOk();
-                        SetLabel(n.judgedKind == JudgeKind.Perfect ? "PERFECT (2x)" : "GOOD (2x)");
-                        FlashBar(n.judgedKind);
-                        ApplyViewerDelta(n.judgedKind);
-                        if (n.judgedKind == JudgeKind.Perfect) HitJudge.RaisePerfect();
-                        else                                    HitJudge.RaiseGood();
-                    }
-
-                    n.animStarted = false; n.animT = 0f;
-                    _notes[iDouble] = n;
-                    return;
-                }
-            }
-        }
-
-        // Tap
         int iTap = PickRightmostInZones(NoteType.Tap, out JudgeKind zoneKindTap);
-        if (iTap >= 0)
+        if (iTap < 0) return false;
+
+        var n = _notes[iTap];
+        n.judged = true;
+        n.judgedKind = zoneKindTap;
+
+        if (zoneKindTap == JudgeKind.Miss)
         {
-            var hit = _notes[iTap];
-            hit.judged = true;
-            hit.judgedKind = zoneKindTap;
-
-            if (zoneKindTap == JudgeKind.Miss)
-            {
-                hit.widget.SetWrong();
-                SetLabel("MISS");
-                FlashBar(JudgeKind.Miss);
-                ApplyViewerDelta(JudgeKind.Miss);
-                HitJudge.RaiseMiss();
-            }
-            else
-            {
-                hit.widget.SetOk();
-                SetLabel(zoneKindTap == JudgeKind.Perfect ? "PERFECT" : "GOOD");
-                FlashBar(zoneKindTap);
-                ApplyViewerDelta(zoneKindTap);
-                if (zoneKindTap == JudgeKind.Perfect) HitJudge.RaisePerfect();
-                else                                   HitJudge.RaiseGood();
-            }
-
-            hit.animStarted = false;
-            hit.animT = 0f;
-            _notes[iTap] = hit;
+            n.widget.SetWrong();
+            SetLabel("MISS");
+            FlashBar(JudgeKind.Miss);
+            ApplyViewerDelta(JudgeKind.Miss);
+            HitJudge.RaiseMiss();
         }
+        else
+        {
+            n.widget.SetOk();
+            SetLabel(zoneKindTap == JudgeKind.Perfect ? "PERFECT" : "GOOD");
+            FlashBar(n.judgedKind);
+            ApplyViewerDelta(n.judgedKind);
+            if (n.judgedKind == JudgeKind.Perfect) HitJudge.RaisePerfect();
+            else                                    HitJudge.RaiseGood();
+
+            // ★ 只在 Good/Perfect 时播放一次音效
+            PlayJudgeSfxOnce(1f);
+        }
+
+        n.animStarted = false;
+        n.animT = 0f;
+        _notes[iTap] = n;
+        return true;
     }
 
-    void ApplyViewerDelta(JudgeKind kind)
+    bool HandleKey_Double(KeyCode key)
     {
-        if (!viewers) return;
-        switch (kind)
+        int iDouble = PickRightmostInZones(NoteType.Double, out JudgeKind zoneKind);
+        if (iDouble < 0) return false;
+
+        var n = _notes[iDouble];
+
+        if (!n.dblAwaiting)
         {
-            case JudgeKind.Perfect: viewers.ApplyJudgement(NoteJudgement.Perfect); break;
-            case JudgeKind.Good:    viewers.ApplyJudgement(NoteJudgement.Good);    break;
-            case JudgeKind.Miss:    viewers.ApplyJudgement(NoteJudgement.Miss);    break;
+            n.dblAwaiting = true;
+            n.dblFirstKey = key;
+            n.dblExpireU  = Time.unscaledTime + doubleSecondGapSec;
+            _notes[iDouble] = n;
+            SetLabel("DOUBLE…");
+            return true; // 消耗按键，但不播音
+        }
+        else
+        {
+            if (key != n.dblFirstKey && Time.unscaledTime <= n.dblExpireU && IsNoteInAnyZone(iDouble))
+            {
+                n.judged = true;
+                n.judgedKind = (zoneKind == JudgeKind.Perfect) ? JudgeKind.Perfect :
+                               (zoneKind == JudgeKind.Good)    ? JudgeKind.Good    : JudgeKind.Miss;
+
+                if (n.judgedKind == JudgeKind.Miss)
+                {
+                    n.widget.SetWrong();
+                    SetLabel("MISS");
+                    FlashBar(JudgeKind.Miss);
+                    ApplyViewerDelta(JudgeKind.Miss);
+                    HitJudge.RaiseMiss();
+                }
+                else
+                {
+                    n.widget.SetOk();
+                    SetLabel(n.judgedKind == JudgeKind.Perfect ? "PERFECT (2x)" : "GOOD (2x)");
+                    FlashBar(n.judgedKind);
+                    ApplyViewerDelta(n.judgedKind);
+                    if (n.judgedKind == JudgeKind.Perfect) HitJudge.RaisePerfect();
+                    else                                    HitJudge.RaiseGood();
+
+                    // ★ Double 的第二击成功才播音，音量乘倍
+                    PlayJudgeSfxOnce(doubleSfxMultiplier);
+                }
+
+                n.animStarted = false; n.animT = 0f;
+                _notes[iDouble] = n;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    void HandleKey_Burst(KeyCode key)
+    {
+        // 若任意 Burst 与 Good/Perfect 区域有水平重叠，则判成功
+        JudgeKind kind = JudgeKind.None;
+
+        for (int i = 0; i < _bursts.Count; i++)
+        {
+            var b = _bursts[i];
+            if (!b.alive || !b.widget) continue;
+
+            GetBurstEdgesInTrack(b.widget.Rect, out float leftX, out float rightX);
+
+            bool overlapPerfect = SegmentIntersectsZone(leftX, rightX, zonePerfect, out _);
+            bool overlapGood    = SegmentIntersectsZone(leftX, rightX, zoneGood,    out _);
+
+            if (overlapPerfect) { kind = JudgeKind.Perfect; break; }
+            if (overlapGood)    { kind = JudgeKind.Good;    /*继续看看有没有Perfect*/ }
+        }
+
+        if (kind == JudgeKind.Perfect || kind == JudgeKind.Good)
+        {
+            SetLabel(kind == JudgeKind.Perfect ? "PERFECT (Burst)" : "GOOD (Burst)");
+            FlashBar(kind);
+            ApplyViewerDelta(kind);
+            if (kind == JudgeKind.Perfect) HitJudge.RaisePerfect();
+            else                            HitJudge.RaiseGood();
+
+            PlayJudgeSfxOnce(1f);
         }
     }
 
+    // ===== 判定/拾取 =====
     int PickRightmostInZones(NoteType type, out JudgeKind zoneKind)
     {
         int idxPerfect = -1; float xPerfect = float.NegativeInfinity;
@@ -352,8 +491,8 @@ public class PatternSystem : MonoBehaviour
         return InsideZoneXInTrack(cx, zonePerfect) || InsideZoneXInTrack(cx, zoneGood) || InsideZoneXInTrack(cx, zoneMiss);
     }
 
-    // ===== 动画 / 回收 =====
-    void AnimateAndCull()
+    // ===== 动画 / 回收（Note）=====
+    void AnimateAndCullNotes()
     {
         for (int i = _notes.Count - 1; i >= 0; i--)
         {
@@ -455,6 +594,14 @@ public class PatternSystem : MonoBehaviour
                 c.gameObject.SetActive(false);
                 _poolDouble.Enqueue(c);
             }
+
+        if (burstPrefab && prewarmBurst > 0)
+            for (int i = 0; i < prewarmBurst; i++)
+            {
+                var c = Instantiate(burstPrefab);
+                c.gameObject.SetActive(false);
+                _poolBurst.Enqueue(c);
+            }
     }
 
     PatternCell GetTapCell()
@@ -481,12 +628,31 @@ public class PatternSystem : MonoBehaviour
         return Instantiate(doublePrefab);
     }
 
+    PatternCell GetBurstCell()
+    {
+        if (_poolBurst.Count > 0)
+        {
+            var c = _poolBurst.Dequeue();
+            c.ResetVisual();
+            c.gameObject.SetActive(true);
+            return c;
+        }
+        return Instantiate(burstPrefab);
+    }
+
     void ReturnCell(PatternCell c, NoteType type)
     {
         if (!c) return;
         c.gameObject.SetActive(false);
         if (type == NoteType.Tap) _poolTap.Enqueue(c);
         else _poolDouble.Enqueue(c);
+    }
+
+    void ReturnBurst(PatternCell c)
+    {
+        if (!c) return;
+        c.gameObject.SetActive(false);
+        _poolBurst.Enqueue(c);
     }
 
     // ===== 输入 & 音效 =====
@@ -518,10 +684,14 @@ public class PatternSystem : MonoBehaviour
         return r;
     }
 
-    void PlayKeyPressSfx()
+    void PlayJudgeSfxOnce(float mul)
     {
         if (sfxSource && keyPressSfx)
-            sfxSource.PlayOneShot(keyPressSfx, keyPressSfxVolume);
+        {
+            // 不夹 1，允许 >1（可能更响；如有失真再回到 1.5~2）
+            float v = Mathf.Max(0f, keyPressSfxVolume * mul);
+            sfxSource.PlayOneShot(keyPressSfx, v);
+        }
     }
 
     // ===== 几何工具 =====
@@ -571,6 +741,32 @@ public class PatternSystem : MonoBehaviour
         return trackRect.InverseTransformPoint(worldCenter).x;
     }
 
+    float GetRectLeftXInTrack(RectTransform rt)
+    {
+        Vector3[] c = _tmpCorners ??= new Vector3[4];
+        rt.GetWorldCorners(c);
+        float left = float.PositiveInfinity;
+        for (int i = 0; i < 4; i++)
+        {
+            float x = trackRect.InverseTransformPoint(c[i]).x;
+            if (x < left) left = x;
+        }
+        return left;
+    }
+
+    float GetRectRightXInTrack(RectTransform rt)
+    {
+        Vector3[] c = _tmpCorners ??= new Vector3[4];
+        rt.GetWorldCorners(c);
+        float right = float.NegativeInfinity;
+        for (int i = 0; i < 4; i++)
+        {
+            float x = trackRect.InverseTransformPoint(c[i]).x;
+            if (x > right) right = x;
+        }
+        return right;
+    }
+
     void RecalcInnerHalf()
     {
         float rowW   = patternRow ? patternRow.rect.width : (trackRect ? trackRect.rect.width : 0f);
@@ -599,6 +795,42 @@ public class PatternSystem : MonoBehaviour
         var p = rt.anchoredPosition; p.x = x; rt.anchoredPosition = p;
     }
 
+    // ★ 把 Burst 的 UI 拉成两边界之间
+    void SetBurstRectBetween(RectTransform rt, float x0, float x1)
+    {
+        if (!rt) return;
+        float cx = 0.5f * (x0 + x1);
+        float w  = Mathf.Abs(x1 - x0);
+        var size = rt.sizeDelta;
+        size.x = Mathf.Max(8f, w); // 最小宽度防止0宽
+        rt.sizeDelta = size;
+
+        var p = rt.anchoredPosition; p.x = cx; rt.anchoredPosition = p;
+    }
+
+    void GetBurstEdgesInTrack(RectTransform rt, out float leftX, out float rightX)
+    {
+        Vector3[] c = _tmpCorners ??= new Vector3[4];
+        rt.GetWorldCorners(c);
+        leftX  = float.PositiveInfinity;
+        rightX = float.NegativeInfinity;
+        for (int i = 0; i < 4; i++)
+        {
+            float x = trackRect.InverseTransformPoint(c[i]).x;
+            if (x < leftX) leftX = x;
+            if (x > rightX) rightX = x;
+        }
+    }
+
+    bool SegmentIntersectsZone(float segLeft, float segRight, RectTransform zone, out float overlapWidth)
+    {
+        GetZoneBoundsInTrack(zone, out float zl, out float zr);
+        float l = Mathf.Max(segLeft, zl);
+        float r = Mathf.Min(segRight, zr);
+        overlapWidth = r - l;
+        return overlapWidth > 0.0001f;
+    }
+
     void SetLabel(string s)
     {
         if (judgeLabel) judgeLabel.text = s;
@@ -617,6 +849,18 @@ public class PatternSystem : MonoBehaviour
         return (r - l) > 1f;
     }
 
+    // ★ 补回：把判定传给 ViewerSystem（保持你原有统计/特效逻辑）
+    void ApplyViewerDelta(JudgeKind kind)
+    {
+        if (!viewers) return;
+        switch (kind)
+        {
+            case JudgeKind.Perfect: viewers.ApplyJudgement(NoteJudgement.Perfect); break;
+            case JudgeKind.Good:    viewers.ApplyJudgement(NoteJudgement.Good);    break;
+            case JudgeKind.Miss:    viewers.ApplyJudgement(NoteJudgement.Miss);    break;
+        }
+    }
+
     public void ResetForNewLevel()
     {
         for (int i = _notes.Count - 1; i >= 0; i--)
@@ -624,8 +868,14 @@ public class PatternSystem : MonoBehaviour
             if (_notes[i].widget) ReturnCell(_notes[i].widget, _notes[i].type);
         }
         _notes.Clear();
-        SetLabel(string.Empty);
 
+        for (int i = _bursts.Count - 1; i >= 0; i--)
+        {
+            if (_bursts[i].widget) ReturnBurst(_bursts[i].widget);
+        }
+        _bursts.Clear();
+
+        SetLabel(string.Empty);
         if (rhythmBar) rhythmBar.color = _barDefaultColor;
         _barFlashTimeLeft = 0f;
     }

@@ -1,47 +1,39 @@
-using System.Collections.Generic;
 using UnityEngine;
+using System.Collections.Generic;
 
-[RequireComponent(typeof(CircleCollider2D))]
 public sealed class DrumProjectile : ProjectileBase
 {
-    [SerializeField] private bool useTrigger = true;
+    [Header("Optional Ring")]
+    [SerializeField] private Material ringMaterial;
+    [SerializeField] private Color ringColor = new(1f, 0.6f, 0f, 0.7f);
+    [SerializeField, Range(12,128)] private int ringSegments = 48;
+    [SerializeField] private float ringWidth = 0.06f;
 
-    CircleCollider2D _col;
-    Vector2 _center;
-    float _r0, _r1, _dur, _t;
-    int _damage;
-    readonly HashSet<Enemy> _hit = new();
-
-    void Awake()
+    public void Explode(Vector2 center, float radius, int damage, float vfxLife)
     {
-        _col = GetComponent<CircleCollider2D>();
-        if (_col) { _col.isTrigger = useTrigger; _col.radius = 0.01f; }
+        // Damage
+        var victims = new List<Enemy>(32);
+        float r2 = radius * radius;
+        foreach (var e in Enemy.All) if (e && ((Vector2)e.transform.position - center).sqrMagnitude <= r2) victims.Add(e);
+        foreach (var v in victims) { var hp = v.GetComponent<EnemyHealth>(); if (hp) hp.TakeDamage(damage); else v.Kill(); }
+
+        // VFX (optional)
+        DrawRing(center, radius, vfxLife);
+        Destroy(gameObject, Mathf.Max(0.01f, vfxLife));
     }
 
-    public void Configure(Vector2 center, float startRadius, float endRadius, float duration, int damage)
+    void DrawRing(Vector2 c, float r, float life)
     {
-        _center = center; _r0 = startRadius; _r1 = endRadius; _dur = duration; _damage = damage;
-        transform.position = _center;
-        _t = 0f;
-        if (_col) _col.radius = _r0;
-    }
-
-    void Update()
-    {
-        _t += Time.deltaTime;
-        float k = Mathf.Clamp01(_t / _dur);
-        float r = Mathf.Lerp(_r0, _r1, k);
-        if (_col) _col.radius = r;
-        if (k >= 1f) Destroy(gameObject);
-    }
-
-    void OnTriggerEnter2D(Collider2D other)
-    {
-        var e = other ? other.GetComponentInParent<Enemy>() : null;
-        if (!e || _hit.Contains(e)) return;
-        _hit.Add(e);
-        var hp = e.GetComponent<EnemyHealth>();
-        if (hp) hp.TakeDamage(_damage);
-        else    e.Kill();
+        var go = new GameObject("DrumRing");
+        var lr = go.AddComponent<LineRenderer>();
+        lr.useWorldSpace = true; lr.loop = true;
+        lr.positionCount = Mathf.Max(12, ringSegments);
+        lr.startWidth = lr.endWidth = Mathf.Max(0.001f, ringWidth);
+        lr.material = ringMaterial != null ? ringMaterial : new Material(Shader.Find("Sprites/Default"));
+        lr.startColor = lr.endColor = ringColor;
+        float step = 2f * Mathf.PI / lr.positionCount;
+        for (int i = 0; i < lr.positionCount; i++)
+            lr.SetPosition(i, c + new Vector2(Mathf.Cos(i*step), Mathf.Sin(i*step)) * r);
+        Object.Destroy(go, Mathf.Max(0.05f, life));
     }
 }

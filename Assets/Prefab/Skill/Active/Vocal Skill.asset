@@ -13,8 +13,7 @@ MonoBehaviour:
   m_Name: Vocal Skill
   m_EditorClassIdentifier: 
   projectilePrefab: {fileID: 3917207719759756556, guid: d1fd8e16edd99804ba4e6a63b345f0d9, type: 3}
-  maxLength: 6
-  width: 2.2
-  growTime: 0.18
-  damage: 4
-  knockback: 4
+  damage: 2
+  speed: 18
+  lifetime: 2.8
+  spawnOffset: 0.2

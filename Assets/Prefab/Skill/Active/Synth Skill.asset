@@ -13,9 +13,9 @@ MonoBehaviour:
   m_Name: Synth Skill
   m_EditorClassIdentifier: 
   projectilePrefab: {fileID: 596558430081535316, guid: b55869b32b3a9af478dbd87da5e2bcbd, type: 3}
-  duration: 0.6
-  length: 7
-  width: 1.2
-  dps: 10
-  tickRate: 10
-  aimLerp: 12
+  damage: 2
+  speed: 4
+  lifetime: 4
+  swayAmplitude: 1
+  swayFrequency: 1
+  spawnOffset: 0.1

@@ -18,7 +18,7 @@ MonoBehaviour:
   levelDurationSeconds: 300
   bgmDelaySec: 0
   enemyPrefab: {fileID: 1398160427443776457, guid: 60e602726284b7e4f9514c2ff9e9c51d, type: 3}
-  spawnInterval: 1.5
-  spawnStartDelay: 5
-  spawnStopEarly: 5
+  spawnInterval: 1
+  spawnStartDelay: 0
+  spawnStopEarly: 0
   rewardGold: 20

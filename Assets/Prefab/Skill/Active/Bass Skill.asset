@@ -12,10 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a9cfed5569252a54ebff7eafb6afad75, type: 3}
   m_Name: Bass Skill
   m_EditorClassIdentifier: 
+  projectilePrefab: {fileID: -8186983886209734054, guid: 77f97dc468386854a8e718ac6027e710, type: 3}
   pelletCount: 5
-  pelletDamage: 2
+  pelletDamage: 1
   pelletSpeed: 16
   coneHalfAngleDeg: 22
-  evenDistribution: 1
-  projectilePrefab: {fileID: -8186983886209734054, guid: 77f97dc468386854a8e718ac6027e710, type: 3}
   spawnOffset: 0.15

@@ -13,7 +13,11 @@ MonoBehaviour:
   m_Name: Acoustic Guitar Skill
   m_EditorClassIdentifier: 
   projectilePrefab: {fileID: 9085239298056256076, guid: 10826fef8fbf9934bbeb907f7db44cf2, type: 3}
-  radius: 2.6
-  arcDegrees: 100
-  duration: 0.22
-  damage: 6
+  damageMain: 2
+  speedMain: 8
+  lifeMain: 4
+  shardCount: 8
+  shardDamage: 1
+  shardSpeed: 10
+  shardLife: 0.3
+  spawnOffset: 0.12
