@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 86920add50212a3448a7eefb6fde032d, type: 3}
+  m_Name: Electric Guitar Skill
+  m_EditorClassIdentifier: 
+  projectilePrefab: {fileID: 1392977006101595185, guid: b0f94b8308d4fac478e9a492b504455d, type: 3}
+  damage: 4
+  bounces: 2
+  searchRadius: 6
+  speed: 14
+  lifetime: 5
+  spawnOffset: 0.2

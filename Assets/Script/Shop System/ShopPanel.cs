@@ -1,178 +1,268 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
-using TMPro;
 using UnityEngine.UI;
-using static SkillLibrary;
-using System.Linq;
+using Game.Skills; 
+
 
 public sealed class ShopPanel : MonoBehaviour
 {
-    [Header("Refs")]
-    [SerializeField] private SkillLibrary library;
+    [Header("Panel Root & Button")]
+    [SerializeField] private GameObject panelRoot;
+    [SerializeField] private Button     nextButton;
+
+    [Header("数据")]
+    [SerializeField] private SkillLibrary library;      // ★ 仍引用 ScriptableObject 资源
     [SerializeField] private PlayerSkills playerSkills;
-    [SerializeField] private ShopUI       shopUI;
 
     [Header("UI Roots")]
-    [SerializeField] private RectTransform poolContent;   // 左侧网格（最多8个）
-    [SerializeField] private DropZonePool  poolDropZone;  // 左侧投递区
-    [SerializeField] private DropZoneOwnedSlot[] ownedSlots = new DropZoneOwnedSlot[4]; // 右侧4槽位
+    [SerializeField] private RectTransform sellerPanel;
+    [SerializeField] private ShopDropZone   sellerZone;
+    [SerializeField] private RectTransform  ownedPanel;
+    [SerializeField] private ShopDropZone[] ownedSlots = new ShopDropZone[4];
 
-    [Header("Prefabs")]
-    [SerializeField] private DraggableSkillCard cardPrefab;
-
-    [Header("Drag Layer")]
-    [SerializeField] private Transform dragLayer; // 通常是最上层Canvas下的一个空物体
-
-    [Header("Limits")]
-    [SerializeField, Min(1)] private int maxPoolCards = 8;
+    [Header("DragLayer（可选统一注入）")]
+    [SerializeField] private Transform sharedDragLayer;
 
     // runtime
-    private readonly Dictionary<ActiveSkillId, DraggableSkillCard> _cards = new();
+    private readonly Dictionary<SkillLibrary.ActiveSkillId, DraggableSkillCard> _cardById =
+        new Dictionary<SkillLibrary.ActiveSkillId, DraggableSkillCard>();
+    private readonly List<DraggableSkillCard> _allCards =
+        new List<DraggableSkillCard>();
+    private readonly Dictionary<ActiveSkillBase, SkillLibrary.ActiveSkillId> _implToId =
+        new Dictionary<ActiveSkillBase, SkillLibrary.ActiveSkillId>();
+
+    private Action _onNext;
+    public bool IsOpen { get; private set; }
 
     void Awake()
     {
-        if (!library)      library      = FindObjectOfType<SkillLibrary>(true);
-        if (!playerSkills) playerSkills = FindObjectOfType<PlayerSkills>(true);
-        if (!shopUI)       shopUI       = FindObjectOfType<ShopUI>(true);
+        if (!panelRoot) Debug.LogError("[ShopPanel] panelRoot 未赋值。");
+        if (panelRoot && panelRoot.activeSelf) panelRoot.SetActive(false);
 
-        if (!poolDropZone) poolDropZone = FindObjectOfType<DropZonePool>(true);
-        if (poolDropZone)  typeof(DropZonePool).GetField("panel",
-           System.Reflection.BindingFlags.NonPublic|System.Reflection.BindingFlags.Instance)?.SetValue(poolDropZone, this);
-
-        // 将自己注入到每个 owned slot
-        for (int i = 0; i < ownedSlots.Length; i++)
+        if (nextButton != null)
         {
-            var s = ownedSlots[i];
-            if (!s) continue;
-            typeof(DropZoneOwnedSlot).GetField("panel",
-                System.Reflection.BindingFlags.NonPublic|System.Reflection.BindingFlags.Instance)?.SetValue(s, this);
+            nextButton.onClick.RemoveAllListeners();
+            nextButton.onClick.AddListener(HandleNext);
         }
 
-        BuildCardsFromLibrary();
+        BuildImplToIdMap();
+        BuildCardsFromScene();
         SyncFromPlayerSkills();
         UpdateContinueInteractable();
     }
 
-    void OnEnable()
+    void OnEnable()  { if (playerSkills) playerSkills.OnChanged += HandleEquipChanged; }
+    void OnDisable() { if (playerSkills) playerSkills.OnChanged -= HandleEquipChanged; }
+
+    // 显/隐
+    public void Show(Action onNext)
     {
-        if (playerSkills != null) playerSkills.OnChanged += HandleEquipChanged;
+        _onNext = onNext;
+        IsOpen = true;
+
+        if (!panelRoot) { Debug.LogError("[ShopPanel] Show失败：panelRoot为空。"); return; }
+
+        panelRoot.transform.SetAsLastSibling();
+        panelRoot.SetActive(true);
+
+        Time.timeScale = 0f;
+        Refresh();
     }
-    void OnDisable()
+
+    public void Hide()
     {
-        if (playerSkills != null) playerSkills.OnChanged -= HandleEquipChanged;
+        if (!IsOpen) return;
+        IsOpen = false;
+
+        if (panelRoot) panelRoot.SetActive(false);
+        Time.timeScale = 1f;
+
+        var cb = _onNext; _onNext = null;
+        cb?.Invoke();
+    }
+
+    private void HandleNext() => Hide();
+
+    public void SetNextInteractable(bool on)
+    {
+        if (nextButton) nextButton.interactable = on;
+    }
+
+    public void Refresh()
+    {
+        BuildImplToIdMap();
+        BuildCardsFromScene();
+        SyncFromPlayerSkills();
+        UpdateContinueInteractable();
+        Canvas.ForceUpdateCanvases();
     }
 
     void HandleEquipChanged() => UpdateContinueInteractable();
 
     void UpdateContinueInteractable()
     {
-        int cnt = playerSkills ? playerSkills.Actives.Count : 0;
-        if (shopUI) shopUI.SetNextInteractable(cnt >= 1); // 至少1个才能继续:contentReference[oaicite:4]{index=4}
+        // 目前按你的要求：一直可点
+        SetNextInteractable(true);
     }
 
-    // ====== 构建左侧卡池 ======
-    void BuildCardsFromLibrary()
+    // ---------- 映射 ----------
+    void BuildImplToIdMap()
     {
-        _cards.Clear();
-        if (!library || library.actives == null || cardPrefab == null || !poolContent) return;
+        _implToId.Clear();
+        if (!library) return;
 
-        int built = 0;
-        for (int i = 0; i < library.actives.Length && built < maxPoolCards; i++)
+        // ★ 新版库只有 GetImpl；固定 8 个枚举位
+        for (int i = 0; i < 8; i++)
         {
-            var e = library.actives[i];
-            if (e == null || e.implementation == null) continue;
-
-            var go = Instantiate(cardPrefab, poolContent);
-            string display = string.IsNullOrEmpty(e.displayName) ? e.id.ToString() : e.displayName;
-            go.Init(this, (ActiveSkillId)i, e.icon, display, dragLayer);
-            _cards[(ActiveSkillId)i] = go;
-            built++;
+            var id   = (SkillLibrary.ActiveSkillId)i;
+            var impl = library.GetImpl(id);
+            if (impl) _implToId[impl] = id;
         }
     }
 
-    // ====== 同步：把已拥有技能放入右侧槽位 ======
+    // ---------- 扫描 sellerPanel 下的卡片 ----------
+    void BuildCardsFromScene()
+    {
+        _cardById.Clear();
+        _allCards.Clear();
+
+        if (!sellerPanel) return;
+
+        var cards = sellerPanel.GetComponentsInChildren<DraggableSkillCard>(includeInactive: true);
+        foreach (var card in cards)
+        {
+            if (!card) continue;
+
+            // 统一注入 DragLayer（避免每张卡配置）
+            if (sharedDragLayer && !card.HasDragLayer())
+                card.SetDragLayer(sharedDragLayer);
+
+            _allCards.Add(card);
+
+            if (TryGetIdForCard(card, out var id) && !_cardById.ContainsKey(id))
+                _cardById.Add(id, card);
+        }
+    }
+
+    bool TryGetIdForCard(DraggableSkillCard card, out SkillLibrary.ActiveSkillId id)
+    {
+        id = default;
+        if (!card) return false;
+        var sk = card.Skill;
+        if (!sk) return false;
+        return _implToId.TryGetValue(sk, out id);
+    }
+
+    // ---------- 同步：把已装备的摆进槽 ----------
     void SyncFromPlayerSkills()
     {
-        if (!playerSkills) return;
+        foreach (var c in _allCards)
+            if (c) c.SnapToHome();
 
-        // 1) 先把所有卡片回收至左侧
-        foreach (var kv in _cards)
-        {
-            var card = kv.Value;
-            if (card) card.transform.SetParent(poolContent, false);
-        }
+        if (!playerSkills || ownedSlots == null || ownedSlots.Length == 0) return;
 
-        // 2) 依次把已装备的放到右侧空槽
-        int nextSlot = 0;
+        int placed = 0;
         var eq = playerSkills.Actives;
-        for (int i = 0; i < eq.Count && nextSlot < ownedSlots.Length; i++)
+        for (int i = 0; i < eq.Count && placed < ownedSlots.Length; i++)
         {
             var id = eq[i];
-            if (!_cards.TryGetValue(id, out var card) || !card) continue;
+            if (!_cardById.TryGetValue(id, out var card) || !card) continue;
 
-            // 找到下一个空槽
-            int slotIdx = FindFirstEmptySlot(nextSlot);
+            int slotIdx = FindFirstEmptySlot();
             if (slotIdx < 0) break;
-            var slot = ownedSlots[slotIdx].transform;
-            card.transform.SetParent(slot, false);
-            nextSlot = slotIdx + 1;
+
+            var slotZone = ownedSlots[slotIdx];
+            var slotParent = GetSlotContentParent(slotZone); // 使用内容父物体
+            if (slotParent)
+            {
+                card.MarkDroppedTo(slotParent, intoSlot: true);
+                placed++;
+            }
         }
     }
 
-    int FindFirstEmptySlot(int start = 0)
+    int FindFirstEmptySlot()
     {
-        for (int i = Mathf.Clamp(start, 0, ownedSlots.Length - 1); i < ownedSlots.Length; i++)
-            if (ownedSlots[i] && ownedSlots[i].transform.childCount == 0)
-                return i;
+        if (ownedSlots == null) return -1;
         for (int i = 0; i < ownedSlots.Length; i++)
-            if (ownedSlots[i] && ownedSlots[i].transform.childCount == 0)
+        {
+            var slotParent = GetSlotContentParent(ownedSlots[i]);
+            if (slotParent && !SlotHasAnyCard(slotParent))
                 return i;
+        }
         return -1;
     }
 
-    // ====== 外部：投递到右侧槽位 ======
-    public void HandleDropToOwned(DropZoneOwnedSlot slot, DraggableSkillCard card)
+    // ---------- Drop 入口 ----------
+    public void HandleDrop(ShopDropZone zone, DraggableSkillCard card)
     {
-        if (!slot || !card) return;
-        // 槽位必须为空（简化：不做交换）
-        if (slot.transform.childCount > 0) { SnapBack(card); return; }
+        if (!zone || !card) return;
 
-        // 若尚未装备 → 尝试添加
-        bool already = playerSkills && playerSkills.Actives.Contains(card.Id);
-        if (!already)
+        if (zone.ZoneKind == ShopDropZone.Kind.Slot)
         {
-            if (!playerSkills || !playerSkills.TryAdd(card.Id))
+            var slotParent = GetSlotContentParent(zone);
+            if (!slotParent) { Debug.LogWarning("[ShopPanel] 槽位缺少有效的内容父物体。"); return; }
+
+            if (SlotHasAnyCard(slotParent))
             {
-                SnapBack(card);
+                Debug.Log("[ShopPanel] 槽位已有卡片，忽略本次放置。");
                 return;
             }
+
+            if (!TryGetIdForCard(card, out var id))
+            {
+                Debug.LogWarning("[ShopPanel] Drop失败：卡片未映射到 ActiveSkillId（请检查 SkillLibrary 实现数组）。");
+                return;
+            }
+            if (!playerSkills || !playerSkills.TryAdd(id))
+            {
+                Debug.LogWarning("[ShopPanel] Drop失败：PlayerSkills.TryAdd(id) 返回 false（可能已满/已存在）。");
+                return;
+            }
+
+            card.MarkDroppedTo(slotParent, intoSlot: true);
+            Debug.Log($"[ShopPanel] Equipped {id} into {zone.name}.");
+            UpdateContinueInteractable();
+            return;
         }
 
-        // 成功：放到槽位内
-        card.MarkDroppedTo(slot.transform);
+        // sellerZone：卸下并回“家”
+        if (TryGetIdForCard(card, out var rid))
+            playerSkills?.Remove(rid);
+
+        card.SnapToHome();
         UpdateContinueInteractable();
     }
 
-    // ====== 外部：投递回左侧池 ======
-    public void HandleDropToPool(DraggableSkillCard card)
+    // 槽外松手（从槽位起拖放空白）：卸下并回“家”
+    public void ForceReturnToSeller(DraggableSkillCard card)
     {
         if (!card) return;
 
-        // 如果当前在槽位 → 从装备里移除
-        var parentSlot = card.transform.parent ? card.transform.parent.GetComponent<DropZoneOwnedSlot>() : null;
-        if (parentSlot && playerSkills)
-        {
-            playerSkills.Remove(card.Id); // 触发 OnChanged → gating 更新:contentReference[oaicite:5]{index=5}
-        }
+        if (TryGetIdForCard(card, out var id))
+            playerSkills?.Remove(id);
 
-        card.MarkDroppedTo(poolContent);
+        card.SnapToHome();
+        UpdateContinueInteractable();
     }
 
-    void SnapBack(DraggableSkillCard card)
+    // ===== 辅助：只把“有卡”的子节点当占用 =====
+    private static bool SlotHasAnyCard(Transform slotParent)
     {
-        // 若来自槽位，仍然留在原槽；若来自池，回池
-        var parentSlot = card.transform.parent ? card.transform.parent.GetComponent<DropZoneOwnedSlot>() : null;
-        if (parentSlot) card.MarkDroppedTo(parentSlot.transform);
-        else            card.MarkDroppedTo(poolContent);
+        if (!slotParent) return false;
+        for (int i = 0; i < slotParent.childCount; i++)
+            if (slotParent.GetChild(i).GetComponent<DraggableSkillCard>())
+                return true;
+        return false;
+    }
+
+    // ===== 辅助：优先使用名为 "Content" 的子节点作为放置目标，否则用 zone 自己 =====
+    private static Transform GetSlotContentParent(ShopDropZone zone)
+    {
+        if (!zone) return null;
+        var t = zone.transform;
+        var content = t.Find("Content");
+        return content ? content : t;
     }
 }

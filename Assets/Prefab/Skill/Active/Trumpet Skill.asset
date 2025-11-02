@@ -1,0 +1,20 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0f87719bd5a848449b3cfd94052ea952, type: 3}
+  m_Name: Trumpet Skill
+  m_EditorClassIdentifier: 
+  projectilePrefab: {fileID: 3276779248143308876, guid: f9b52131c034a4d4ea429f125df756e1, type: 3}
+  speed: 18
+  damage: 12
+  steer: 6
+  lifeTime: 3.5
+  spawnOffset: 0.15

@@ -1,6 +1,5 @@
 using UnityEngine;
-using Game.Skills;
-using static SkillLibrary;
+using Game.Skills; 
 
 public sealed class CombatDirector : MonoBehaviour
 {
@@ -39,10 +38,11 @@ public sealed class CombatDirector : MonoBehaviour
     void HandleHit()
     {
         if (!player || !playerSkills || !library) return;
-        var actives = playerSkills.Actives;   // 仅记录4个已选技能
+
+        var actives = playerSkills.Actives;   // 仅记录已选技能
         for (int i = 0; i < actives.Count; i++)
         {
-            var impl = library.GetActiveImpl(actives[i]);
+            var impl = library.GetImpl(actives[i]); // ★ 新库 API
             impl?.Cast(_ctx);
         }
     }

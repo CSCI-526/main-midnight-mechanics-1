@@ -2,10 +2,6 @@ using System;
 using UnityEngine;
 using UnityEngine.UI;
 
-/// <summary>
-/// Full-screen shop panel. Shows on level-end, pauses the game, and resumes on Next.
-/// No audio management here.
-/// </summary>
 public sealed class ShopUI : MonoBehaviour
 {
     [Header("Refs")]
@@ -28,19 +24,27 @@ public sealed class ShopUI : MonoBehaviour
         }
     }
 
-    /// <summary>Show the shop UI and pause the game.</summary>
     public void Show(Action onNext)
     {
-        if (IsOpen) return; // prevent double-open
+        // ★ 兜底：就算 Awake 还没跑，也能给到 root
+        if (!root) root = gameObject;
+
+        if (IsOpen) return;
         IsOpen  = true;
         _onNext = onNext;
 
+        // 置顶并显示
         root.transform.SetAsLastSibling();
         root.SetActive(true);
+
+        // 暂停游戏
         Time.timeScale = 0f;
+
+        // 可选：这里也可以再安全刷新一次 Continue 状态
+        var panel = GetComponentInChildren<ShopPanel>(true);
+        if (panel) panel.Refresh();
     }
 
-    /// <summary>Hide the shop UI, resume the game, then invoke the callback.</summary>
     public void Hide()
     {
         if (!IsOpen) return;
@@ -54,8 +58,7 @@ public sealed class ShopUI : MonoBehaviour
     }
 
     private void HandleNext() => Hide();
-    
-    
+
     public void SetNextInteractable(bool on)
     {
         if (nextButton) nextButton.interactable = on;

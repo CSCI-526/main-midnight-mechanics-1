@@ -12,33 +12,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 494a865a56e30cf4ab7f652648cc5a31, type: 3}
   m_Name: PlayerSkillLib
   m_EditorClassIdentifier: 
-  actives:
-  - code: 100
-    id: 0
-    displayName: Chain Bolt
-    tier: 1
-    icon: {fileID: 21300000, guid: 84b94de70bd187541886a79242af3576, type: 3}
-    implementation: {fileID: 11400000, guid: 4986ab556483c0a40b2466bd8dfddeb8, type: 2}
-    price: 25
-  - code: 101
-    id: 1
-    displayName: Explosion
-    tier: 1
-    icon: {fileID: 21300000, guid: 771039e12f819e049a56cad3b3995349, type: 3}
-    implementation: {fileID: 11400000, guid: 304fa893039db1d4697b91c0aec0b9b7, type: 2}
-    price: 20
-  - code: 102
-    id: 2
-    displayName: Orbit Orb
-    tier: 1
-    icon: {fileID: 21300000, guid: 0a0559a8918b9cb4793f0078817d8175, type: 3}
-    implementation: {fileID: 11400000, guid: ad5fdde22a5d76f45a4d4f5b406a0dfe, type: 2}
-    price: 20
-  - code: 103
-    id: 3
-    displayName: Spread Shot
-    tier: 1
-    icon: {fileID: 21300000, guid: f31d55119cd01ee4daca795686737cc1, type: 3}
-    implementation: {fileID: 11400000, guid: 41d382946799a0f40a95e59ededf69b4, type: 2}
-    price: 15
-  passives: []
+  implementations:
+  - {fileID: 11400000, guid: b45f964cf10a9324a8d85d5e036528d2, type: 2}
+  - {fileID: 11400000, guid: f775b4a585fb4c146843c3f0e01327f9, type: 2}
+  - {fileID: 11400000, guid: 7dbdfa5a1f170e345af9e5a027e63790, type: 2}
+  - {fileID: 11400000, guid: 0e357c80608a5aa48ad482b1cb26efc0, type: 2}
+  - {fileID: 11400000, guid: 034fcf741857bcd4e9c6b331af9ff734, type: 2}
+  - {fileID: 11400000, guid: 810c68b795cba0e468c39c0cdac77485, type: 2}
+  - {fileID: 11400000, guid: c65270d820d9c584e9cc92c0bd0d1712, type: 2}
+  - {fileID: 11400000, guid: f8807b955241e9744ac387fe3226eeb4, type: 2}
