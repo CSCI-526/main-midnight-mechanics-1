@@ -27,9 +27,26 @@ public class PatternSystem : MonoBehaviour
     [Header("Visual Spawn")]
     [SerializeField] private float spawnLeftPaddingPx = 40f;
 
-    [Header("Judge FX (Simple)")]
+    [Header("Judge FX (Scale)")]
     [SerializeField] private float hitScaleFactor = 1.2f;
     [SerializeField] private float scaleSeconds = 0.10f;
+
+    [Header("Cell Tint (Overlay) — 叠色更深")]
+    [SerializeField] private bool  useOverlayTint = true;
+    [SerializeField] private Color tintPerfect = new Color(0.25f, 1.00f, 0.35f, 1f);
+    [SerializeField] private Color tintGood    = new Color(0.35f, 0.70f, 1.00f, 1f);
+    [SerializeField] private Color tintMiss    = new Color(1.00f, 0.30f, 0.30f, 1f);
+    [SerializeField, Range(0f,1f)] private float tintAlpha = 0.85f;
+    [SerializeField] private float tintFadeIn  = 0.06f;
+    [SerializeField] private float tintHold    = 0.06f;
+    [SerializeField] private float tintFadeOut = 0.22f;
+
+    [Header("Burst Hit Tint")]
+    [SerializeField] private Color burstHitTint = new Color(1f, 1f, 1f, 1f);
+    [SerializeField, Range(0f,1f)] private float burstTintAlpha = 0.65f;
+    [SerializeField] private float burstTintIn  = 0.05f;
+    [SerializeField] private float burstTintHold= 0.03f;
+    [SerializeField] private float burstTintOut = 0.18f;
 
     [Header("Double Settings")]
     [SerializeField] private float doubleSecondGapSec = 0.08f;
@@ -46,10 +63,10 @@ public class PatternSystem : MonoBehaviour
     [Header("Rhythm Bar Flash")]
     [SerializeField] private Image rhythmBar;
     [SerializeField] private Color perfectFlashColor = new Color(0.60f, 1.00f, 0.60f, 1f);
-    [SerializeField] private Color goodFlashColor    = new Color(0.60f, 0.80f, 1.00f, 1f);
+    [SerializeField] private Color goodFlashColor    = new Color(0.60f, 0.80f, 1.00f, 1f); // 不再使用，仅保留字段
     [SerializeField] private Color missFlashColor    = new Color(1.00f, 0.40f, 0.40f, 1f);
     [SerializeField, Min(0f)] private float perfectFlashSeconds = 0.08f;
-    [SerializeField, Min(0f)] private float goodFlashSeconds    = 0.08f;
+    [SerializeField, Min(0f)] private float goodFlashSeconds    = 0.08f; // 不再使用，仅保留字段
     [SerializeField, Min(0f)] private float missFlashSeconds    = 0.10f;
 
     [Header("Viewers")]
@@ -89,15 +106,14 @@ public class PatternSystem : MonoBehaviour
         public float animT;
     }
 
-    // —— Burst 数据 ——
     struct Burst
     {
         public PatternCell widget;
         public double startSec;
         public double endSec;
         public float  leadTimeSec;
-        public double departStartSec; // startSec - lead
-        public double departEndSec;   // endSec - lead
+        public double departStartSec;
+        public double departEndSec;
         public float  baseScale;
 
         public bool   alive;
@@ -134,7 +150,7 @@ public class PatternSystem : MonoBehaviour
         }
         if (!tapPrefab.ValidateSetup(true) || !doublePrefab.ValidateSetup(true) || !burstPrefab.ValidateSetup(true))
         {
-            Debug.LogError("[PatternSystem] 某个 PatternCell Prefab 的必填项未设置（Rect/Icon/Hit/Miss）。", this);
+            Debug.LogError("[PatternSystem] 某个 PatternCell Prefab 的必填项未设置（Rect/Icon）。", this);
             enabled = false; return;
         }
         if (!trackRect || !zonePerfect || !zoneGood || !zoneMiss)
@@ -178,10 +194,12 @@ public class PatternSystem : MonoBehaviour
             {
                 n.judged     = true;
                 n.judgedKind = JudgeKind.Miss;
-                n.widget.SetWrong();
+
+                // ★ Miss 也叠红色（更深）
+                TintNote(n.widget, n.judgedKind);
+
                 SetLabel("MISS");
                 FlashBar(JudgeKind.Miss);
-
                 ApplyViewerDelta(JudgeKind.Miss);
                 HitJudge.RaiseMiss();
 
@@ -217,13 +235,12 @@ public class PatternSystem : MonoBehaviour
             }
         }
 
-        // —— 输入判定：优先处理任何“已锁定等待第二击”的 Double；否则统一挑最右 —— //
+        // —— 输入判定 —— //
         for (int i = 0; i < pressed.Count; i++)
         {
             var key = pressed[i];
             bool consumed = false;
 
-            // 先找“等待第二击”的 Double（若有则锁定它，避免被新出现的 Tap 抢判）
             int idxAwait = FindRightmostAwaitingDouble(out JudgeKind zoneKindAwait);
             if (idxAwait >= 0)
             {
@@ -231,7 +248,6 @@ public class PatternSystem : MonoBehaviour
             }
             else
             {
-                // 没有等待中的 Double → 跨类型统一挑“最右 + 层级(Perfect>Good>Miss)”
                 int idx = PickRightmostOverall(out NoteType pickedType, out JudgeKind zoneKind);
                 if (idx >= 0)
                 {
@@ -242,7 +258,6 @@ public class PatternSystem : MonoBehaviour
                 }
             }
 
-            // 若未消耗，尝试 Burst（与 Good/Perfect 重叠即判）
             if (!consumed)
                 HandleKey_Burst(key);
         }
@@ -303,7 +318,6 @@ public class PatternSystem : MonoBehaviour
         });
     }
 
-    // ★ 新：投喂 Burst（长条）
     public void EnqueueBurst(double startSec, double endSec, float leadTimeSec)
     {
         if (endSec < startSec) { var t = startSec; startSec = endSec; endSec = t; }
@@ -313,7 +327,6 @@ public class PatternSystem : MonoBehaviour
         w.gameObject.SetActive(true);
         w.ResetVisual();
 
-        // 运行时“防呆”：把X锚点 & pivot 拉回中心
         if (forceBurstCenterAnchors && w && w.Rect)
         {
             var rt = w.Rect;
@@ -328,7 +341,6 @@ public class PatternSystem : MonoBehaviour
             }
         }
 
-        // 置顶，避免被 Tap/Double 遮住
         w.transform.SetAsLastSibling();
 
         float lead = Mathf.Max(0.01f, leadTimeSec);
@@ -346,13 +358,11 @@ public class PatternSystem : MonoBehaviour
         };
         _bursts.Add(b);
 
-        // 初始位置（避免一开始0宽）
         float spawnLeftX = GetSpawnLeftX();
         SetBurstRectBetween(w.Rect, spawnLeftX, spawnLeftX);
     }
 
     // ===== 统一“只判最右边”的选择器 =====
-    // 先找 Perfect 层里最右；若无再找 Good；再找 Miss
     int PickRightmostOverall(out NoteType type, out JudgeKind zoneKind)
     {
         type = NoteType.Tap; zoneKind = JudgeKind.None;
@@ -379,7 +389,6 @@ public class PatternSystem : MonoBehaviour
         return -1;
     }
 
-    // 有等待第二击的 Double 时，优先处理它（若有多个，仍是按层级+最右）
     int FindRightmostAwaitingDouble(out JudgeKind zoneKind)
     {
         zoneKind = JudgeKind.None;
@@ -416,9 +425,11 @@ public class PatternSystem : MonoBehaviour
         n.judged = true;
         n.judgedKind = zoneKindTap;
 
+        // ★ 用叠色替代换图：Perfect/Good/Miss 各自染色；强度由 tintAlpha 控
+        TintNote(n.widget, n.judgedKind);
+
         if (zoneKindTap == JudgeKind.Miss)
         {
-            n.widget.SetWrong();
             SetLabel("MISS");
             FlashBar(JudgeKind.Miss);
             ApplyViewerDelta(JudgeKind.Miss);
@@ -426,9 +437,8 @@ public class PatternSystem : MonoBehaviour
         }
         else
         {
-            n.widget.SetOk();
             SetLabel(zoneKindTap == JudgeKind.Perfect ? "PERFECT" : "GOOD");
-            FlashBar(n.judgedKind);
+            FlashBar(n.judgedKind); // Good 已在 FlashBar 中被忽略
             ApplyViewerDelta(n.judgedKind);
             if (n.judgedKind == JudgeKind.Perfect) HitJudge.RaisePerfect();
             else                                    HitJudge.RaiseGood();
@@ -446,7 +456,6 @@ public class PatternSystem : MonoBehaviour
         var n = _notes[idx];
         if (n.judged || n.type != NoteType.Double) return false;
 
-        // 第一击：锁定
         if (!n.dblAwaiting)
         {
             n.dblAwaiting = true;
@@ -454,21 +463,21 @@ public class PatternSystem : MonoBehaviour
             n.dblExpireU  = Time.unscaledTime + doubleSecondGapSec;
             _notes[idx] = n;
             SetLabel("DOUBLE…");
-            return true; // 消耗本次按键
+            return true;
         }
 
-        // 第二击：不同键 + 未过期 + 仍在任一区域内
         if (key != n.dblFirstKey && Time.unscaledTime <= n.dblExpireU && IsNoteInAnyZone(idx))
         {
             n.judged = true;
-            // 这里直接用当下的层（也可改成记录第一击时层级）：
             var k = zoneKindAtPick;
             if (k == JudgeKind.None) k = JudgeKind.Good;
             n.judgedKind = k;
 
+            // ★ 叠色
+            TintNote(n.widget, n.judgedKind);
+
             if (n.judgedKind == JudgeKind.Miss)
             {
-                n.widget.SetWrong();
                 SetLabel("MISS");
                 FlashBar(JudgeKind.Miss);
                 ApplyViewerDelta(JudgeKind.Miss);
@@ -476,9 +485,8 @@ public class PatternSystem : MonoBehaviour
             }
             else
             {
-                n.widget.SetOk();
                 SetLabel(n.judgedKind == JudgeKind.Perfect ? "PERFECT (2x)" : "GOOD (2x)");
-                FlashBar(n.judgedKind);
+                FlashBar(n.judgedKind); // Good 被忽略
                 ApplyViewerDelta(n.judgedKind);
                 if (n.judgedKind == JudgeKind.Perfect) HitJudge.RaisePerfect();
                 else                                    HitJudge.RaiseGood();
@@ -495,8 +503,9 @@ public class PatternSystem : MonoBehaviour
 
     void HandleKey_Burst(KeyCode key)
     {
-        // 若任意 Burst 与 Good/Perfect 有水平重叠，则判成功
+        // 与 Good/Perfect 重叠即判
         JudgeKind kind = JudgeKind.None;
+        bool anyOverlap = false;
 
         for (int i = 0; i < _bursts.Count; i++)
         {
@@ -508,11 +517,11 @@ public class PatternSystem : MonoBehaviour
             bool overlapPerfect = SegmentIntersectsZone(leftX, rightX, zonePerfect, out _);
             bool overlapGood    = SegmentIntersectsZone(leftX, rightX, zoneGood,    out _);
 
-            if (overlapPerfect) { kind = JudgeKind.Perfect; break; }
-            if (overlapGood)    { kind = JudgeKind.Good; /*再看看有没有Perfect*/ }
+            if (overlapPerfect) { kind = JudgeKind.Perfect; anyOverlap = true; break; }
+            if (overlapGood)    { kind = JudgeKind.Good;    anyOverlap = true; /*继续看看有没有Perfect*/ }
         }
 
-        if (kind == JudgeKind.Perfect || kind == JudgeKind.Good)
+        if (anyOverlap && (kind == JudgeKind.Perfect || kind == JudgeKind.Good))
         {
             SetLabel(kind == JudgeKind.Perfect ? "PERFECT (Burst)" : "GOOD (Burst)");
             FlashBar(kind);
@@ -521,7 +530,33 @@ public class PatternSystem : MonoBehaviour
             else                            HitJudge.RaiseGood();
 
             PlayJudgeSfxOnce(1f);
+
+            // ★ Burst 自身叠色（可连点连闪）：对所有当前重叠的 burst 施加一次 flash
+            for (int i = 0; i < _bursts.Count; i++)
+            {
+                var b = _bursts[i];
+                if (!b.alive || !b.widget) continue;
+                GetBurstEdgesInTrack(b.widget.Rect, out float l, out float r);
+                bool overlapP = SegmentIntersectsZone(l, r, zonePerfect, out _);
+                bool overlapG = SegmentIntersectsZone(l, r, zoneGood,    out _);
+                if (overlapP || overlapG)
+                    b.widget.FlashTint(burstHitTint, burstTintAlpha, burstTintIn, burstTintHold, burstTintOut);
+            }
         }
+    }
+
+    // ===== 叠色助手 =====
+    void TintNote(PatternCell w, JudgeKind k)
+    {
+        if (!useOverlayTint || !w) return;
+        Color c = k switch
+        {
+            JudgeKind.Perfect => tintPerfect,
+            JudgeKind.Good    => tintGood,
+            JudgeKind.Miss    => tintMiss,
+            _ => tintGood
+        };
+        w.FlashTint(c, tintAlpha, tintFadeIn, tintHold, tintFadeOut);
     }
 
     // ===== 辅助：是否仍在任一区域内 =====
@@ -576,16 +611,16 @@ public class PatternSystem : MonoBehaviour
         }
     }
 
-    // ===== 闪色 =====
+    // ===== Bar 闪色（Good 不再闪；Perfect/Miss 保留）=====
     void FlashBar(JudgeKind kind)
     {
         if (!rhythmBar) return;
+        if (kind == JudgeKind.Good) return; // ★ 忽略 Good 的闪烁
 
         Color c; float dur;
         switch (kind)
         {
             case JudgeKind.Perfect: c = perfectFlashColor; dur = Mathf.Max(0f, perfectFlashSeconds); break;
-            case JudgeKind.Good:    c = goodFlashColor;    dur = Mathf.Max(0f, goodFlashSeconds);    break;
             case JudgeKind.Miss:    c = missFlashColor;    dur = Mathf.Max(0f, missFlashSeconds);    break;
             default: return;
         }
@@ -836,14 +871,13 @@ public class PatternSystem : MonoBehaviour
         var p = rt.anchoredPosition; p.x = x; rt.anchoredPosition = p;
     }
 
-    // 把 Burst 的 UI 拉成两边界之间
     void SetBurstRectBetween(RectTransform rt, float x0, float x1)
     {
         if (!rt) return;
         float cx = 0.5f * (x0 + x1);
         float w  = Mathf.Abs(x1 - x0);
         var size = rt.sizeDelta;
-        size.x = Mathf.Max(8f, w); // 最小宽度防止0宽
+        size.x = Mathf.Max(8f, w);
         rt.sizeDelta = size;
 
         var p = rt.anchoredPosition; p.x = cx; rt.anchoredPosition = p;
@@ -890,7 +924,6 @@ public class PatternSystem : MonoBehaviour
         return (r - l) > 1f;
     }
 
-    // 把判定传给 ViewerSystem
     void ApplyViewerDelta(JudgeKind kind)
     {
         if (!viewers) return;
