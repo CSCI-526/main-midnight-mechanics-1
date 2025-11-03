@@ -143,6 +143,8 @@ public class PatternSystem : MonoBehaviour
 
         if (!viewers) viewers = Object.FindFirstObjectByType<ViewerSystem>(FindObjectsInactive.Include);
         if (rhythmBar) _barDefaultColor = rhythmBar.color;
+        if (sfxSource && GlobalAudio.I && GlobalAudio.I.SfxGroup)
+            sfxSource.outputAudioMixerGroup = GlobalAudio.I.SfxGroup;
     }
 
     void Update()

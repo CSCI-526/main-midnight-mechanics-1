@@ -21,6 +21,9 @@ public class LevelRunner : MonoBehaviour
     [SerializeField, Range(0.0005f, 0.02f)] private float driftAlpha = 0.002f;
     [SerializeField] private bool  debugLogDrift = false;
     [SerializeField, Min(0.05f)] private float debugLogIntervalSec = 0.5f;
+    
+    [Header("External Pause")]                     // ★ 新增
+    [SerializeField] private bool externalPause;
 
     public System.Action OnLevelEnded;
     public System.Action OnLevelApplied;
@@ -30,41 +33,42 @@ public class LevelRunner : MonoBehaviour
     public float ElapsedRealtime { get; private set; }
     public float Progress01 => LevelDuration > 0f ? Mathf.Clamp01(ElapsedRealtime / LevelDuration) : 0f;
 
-    // —— 内部状态 —— //
-    List<RhythmChart.ChartEvent> timeline;
-    List<RhythmChart.BurstRange> burstTimeline;   // ★ 新增
-    int   cursor;
-    int   cursorBurst;                            // ★ 新增
-    bool  running;
+    // —— 时间轴 —— 
+    List<RhythmChart.ChartEvent> timeline;           // Tap / Double
+    List<RhythmChart.BurstRange> burstTimeline;      // Burst 区间
+    int cursor;
+    int cursorBurst;
 
-    float  lead;
-    double chartStartDsp;
-    double musicStartDsp;
-    bool   musicScheduled;
+    // —— 运行时状态 —— 
+    bool   running;
+    float  lead;                 // 可视飞行时间
+    double chartStartDsp;        // 谱面起点（DSP）
+    double musicStartDsp;        // 音乐起点（DSP）
 
-    // —— 漂移跟踪 —— //
+    // —— 漂移跟踪（用音乐采样钟做相位对齐）——
     double driftLPF;
     double nextDriftLogDsp;
-    
-    double pausedDspAccum;   // 累加的暂停时长（DSP时间）
-    double pauseStartDsp;
+
+    // —— 暂停补偿：把暂停的 DSP 时长扣掉，防止节拍跳跃 —— 
+    bool   wasPaused;
+    double pauseBeginDsp;
+    double pausedAccumDsp;
 
     void OnEnable()
     {
-        if (!viewers) viewers = FindFirstObjectByType<ViewerSystem>(FindObjectsInactive.Include);
-        if (!pattern) pattern = FindFirstObjectByType<PatternSystem>(FindObjectsInactive.Include);
-        if (!spawner) spawner = FindFirstObjectByType<EnemySpawner>(FindObjectsInactive.Include);
+        if (!viewers)    viewers    = FindFirstObjectByType<ViewerSystem>(FindObjectsInactive.Include);
+        if (!pattern)    pattern    = FindFirstObjectByType<PatternSystem>(FindObjectsInactive.Include);
+        if (!spawner)    spawner    = FindFirstObjectByType<EnemySpawner>(FindObjectsInactive.Include);
         if (!gameOverUI) gameOverUI = FindFirstObjectByType<GameOverUI>(FindObjectsInactive.Include);
 
         if (viewers) viewers.OnDepleted += HandleGameOver;
-        
-        GamePause.OnPauseChanged += OnPauseChanged;
+        if (music && GlobalAudio.I && GlobalAudio.I.MusicGroup)
+            music.outputAudioMixerGroup = GlobalAudio.I.MusicGroup;
     }
 
     void OnDisable()
     {
         if (viewers) viewers.OnDepleted -= HandleGameOver;
-        GamePause.OnPauseChanged -= OnPauseChanged;
     }
 
     public void Apply(LevelConfig level)
@@ -82,34 +86,36 @@ public class LevelRunner : MonoBehaviour
         // Pattern 初始化
         pattern.ResetForNewLevel();
         pattern.EnableChartMode(true);
-        
-        pausedDspAccum = 0.0;
-        pauseStartDsp  = 0.0;
 
-        // 生成时间轴
+        // 生成时间轴（含 Burst）
         timeline      = Current.chart.BuildTimeline();
-        burstTimeline = Current.chart.BuildBurstTimeline();   // ★ 新增
+        burstTimeline = Current.chart.BuildBurstTimeline();
         cursor        = 0;
-        cursorBurst   = 0;                                    // ★ 新增
+        cursorBurst   = 0;
 
-        // 领跑时间
+        // 可视飞行时间
         lead = Mathf.Max(0.01f, Current.chart.defaultLeadTimeSec);
 
         // 关卡时长
         LevelDuration   = Mathf.Max(1f, Current.levelDurationSeconds);
         ElapsedRealtime = 0f;
 
-        // —— DSP 预卷（lead 秒） —— //
-        double dspNow        = AudioSettings.dspTime;
-        double extraSilence  = Mathf.Max(0f, Current.bgmDelaySec);
-        chartStartDsp        = dspNow + lead + extraSilence;
-        musicStartDsp        = chartStartDsp;
-        musicScheduled       = false;
+        // —— DSP 预卷：lead + bgmDelaySec —— 
+        double dspNow       = AudioSettings.dspTime;
+        double extraSilence = Mathf.Max(0f, Current.bgmDelaySec);
+        chartStartDsp       = dspNow + lead + extraSilence;
+        musicStartDsp       = chartStartDsp;
 
-        // —— 漂移复位 —— //
+        // —— 漂移复位 —— 
         driftLPF        = 0.0;
         nextDriftLogDsp = dspNow + debugLogIntervalSec;
 
+        // —— 暂停补偿复位 —— 
+        wasPaused      = false;
+        pauseBeginDsp  = 0.0;
+        pausedAccumDsp = 0.0;
+
+        // 安排音乐
         if (music && Current.bgm)
         {
             music.Stop();
@@ -118,7 +124,6 @@ public class LevelRunner : MonoBehaviour
             music.loop         = false;
             music.spatialBlend = 0f;
             music.PlayScheduled(musicStartDsp);
-            musicScheduled = true;
         }
 
         // 刷怪窗口
@@ -130,31 +135,45 @@ public class LevelRunner : MonoBehaviour
 
         running = true;
         OnLevelApplied?.Invoke();
-
-        // 可选：调试确认 Burst 段数
-        // Debug.Log($"[LevelRunner] Burst spans: {burstTimeline?.Count ?? 0}");
     }
 
     void Update()
     {
-        if (!running || GamePause.IsPaused) return;
-        
         if (!running) return;
+        
+        if (externalPause) return;
+
+        // —— 暂停冻结：完全停止推进时钟 & 投喂 —— 
+        if (GamePause.IsPaused)
+        {
+            if (!wasPaused)
+            {
+                wasPaused     = true;
+                pauseBeginDsp = AudioSettings.dspTime;
+            }
+            return;
+        }
+        else if (wasPaused)
+        {
+            // 恢复：把暂停期间的 DSP 时长记账，后续从时钟里扣掉
+            pausedAccumDsp += AudioSettings.dspTime - pauseBeginDsp;
+            wasPaused = false;
+        }
 
         // 观众归零：双保险
         if (viewers && viewers.IsDepleted) return;
 
-        // 实时间推进
+        // 实时间推进（用于关卡整体时长）
         ElapsedRealtime = Mathf.Min(ElapsedRealtime + Time.deltaTime, LevelDuration);
 
-        // —— 时钟 & 漂移测量 —— //
+        // —— 时钟 & 漂移 —— 
         double dspNow   = AudioSettings.dspTime;
-        double expected = dspNow - musicStartDsp;
+        double expected = (dspNow - musicStartDsp) - pausedAccumDsp;
 
         if (useSampleClock && music && music.clip && music.timeSamples > 0)
         {
             double actual   = (double)music.timeSamples / music.clip.frequency;
-            double measured = expected - actual; // 正：DSP超前(音乐偏慢)
+            double measured = expected - actual;   // 正：DSP 超前（音乐偏慢）
             driftLPF += (measured - driftLPF) * driftAlpha;
 
             if (debugLogDrift && dspNow >= nextDriftLogDsp)
@@ -165,9 +184,9 @@ public class LevelRunner : MonoBehaviour
             }
         }
 
-        double chartNow = (dspNow - chartStartDsp) - (useSampleClock ? driftLPF : 0.0);
+        double chartNow = (dspNow - chartStartDsp - pausedAccumDsp) - (useSampleClock ? driftLPF : 0.0);
 
-        // —— 投喂 Tap/Double —— //
+        // —— 投喂 Tap/Double —— 
         while (cursor < (timeline?.Count ?? 0))
         {
             var ev = timeline[cursor];
@@ -182,7 +201,7 @@ public class LevelRunner : MonoBehaviour
             else break;
         }
 
-        // —— 投喂 Burst（区间，按 startSec 预卷）—— ★ 新增 //
+        // —— 投喂 Burst —— 
         while (cursorBurst < (burstTimeline?.Count ?? 0))
         {
             var span = burstTimeline[cursorBurst];
@@ -194,10 +213,10 @@ public class LevelRunner : MonoBehaviour
             else break;
         }
 
-        // 驱动 Pattern
+        // 驱动可视
         pattern.SetChartNow(chartNow);
 
-        // —— 关卡自然结束 —— //
+        // —— 关卡自然结束 —— 
         if (ElapsedRealtime >= LevelDuration)
         {
             running = false;
@@ -227,7 +246,7 @@ public class LevelRunner : MonoBehaviour
         if (pattern) pattern.ResetForNewLevel();
     }
 
-    // —— 观众归零 → GameOver 流程 —— //
+    // —— 观众归零 → GameOver 流程 —— 
     void HandleGameOver()
     {
         if (!running) return;
@@ -267,19 +286,13 @@ public class LevelRunner : MonoBehaviour
         }
     }
     
-    void OnPauseChanged(bool on)
+    public void SetExternalPause(bool on)
     {
-        double now = AudioSettings.dspTime;
-
-        if (on)
+        externalPause = on;
+        if (music)
         {
-            pauseStartDsp = now;
-            if (music) music.Pause(); // 与 AudioListener.pause 双保险
-        }
-        else
-        {
-            pausedDspAccum += (now - pauseStartDsp);
-            if (music) music.UnPause();
+            if (on) music.Pause();
+            else    music.UnPause();
         }
     }
 }

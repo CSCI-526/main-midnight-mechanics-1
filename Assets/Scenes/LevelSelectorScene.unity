@@ -2656,9 +2656,11 @@ MonoBehaviour:
   exitButton: {fileID: 505206814}
   entries:
   - button: {fileID: 7931682}
-    pack: {fileID: 11400000, guid: ed57d88f9fa3467448e0426c8e8d5daa, type: 2}
+    pack: {fileID: 11400000, guid: f834da8da5711384eaeb0d8fedfceff7, type: 2}
   - button: {fileID: 1346089288}
     pack: {fileID: 11400000, guid: 6d36e668379a31f4c805df51ecdb0b92, type: 2}
+  - button: {fileID: 275177716}
+    pack: {fileID: 11400000, guid: d0ca25d9efda66d44b75c0d11c08d004, type: 2}
   sceneFlow: {fileID: 1625988654}
 --- !u!1 &1625988652
 GameObject:

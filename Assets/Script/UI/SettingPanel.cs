@@ -1,113 +1,88 @@
 using UnityEngine;
 using UnityEngine.UI;
-using TMPro; 
+using TMPro;
 
 [DisallowMultipleComponent]
 public class SettingPanel : MonoBehaviour
 {
-    [Header("Roots")]
-    [SerializeField] private GameObject panel;      // 
+    [Header("Root")]
+    [SerializeField] private GameObject panel;
 
-    [Header("Controls")]
-    [SerializeField] private Slider masterSlider;   // Slider: Min=0, Max=1, WholeNumbers=false
-    [SerializeField] private TMP_Text percentText;  // 
+    [Header("Master")]
+    [SerializeField] private Slider   masterSlider;
+    [SerializeField] private TMP_Text masterPercent;
+
+    [Header("BGM")]
+    [SerializeField] private Slider   bgmSlider;
+    [SerializeField] private TMP_Text bgmPercent;
+
+    [Header("SFX")]
+    [SerializeField] private Slider   sfxSlider;
+    [SerializeField] private TMP_Text sfxPercent;
 
     [Header("Buttons")]
-    [SerializeField] private Button openButton;     // 场景中“设置/齿轮”按钮
-    [SerializeField] private Button closeButton;    // 面板里的“关闭/返回”按钮
+    [SerializeField] private Button openButton;
+    [SerializeField] private Button closeButton;
+    [SerializeField] private Button resetButton;
 
     [Header("Defaults")]
-    [Range(0f, 1f)]
-    [SerializeField] private float initialVolume = 1f; // 初始音量
-
-    private const string KEY = "master_volume";
+    [Range(0f,1f)] [SerializeField] private float defaultMaster = 1f;
+    [Range(0f,1f)] [SerializeField] private float defaultBgm    = 1f;
+    [Range(0f,1f)] [SerializeField] private float defaultSfx    = 1f;
 
     void Awake()
     {
-        // 绑定按钮（若未指定则忽略）
         if (openButton)  openButton.onClick.AddListener(OpenPanel);
         if (closeButton) closeButton.onClick.AddListener(ClosePanel);
+        if (resetButton) resetButton.onClick.AddListener(ResetToDefaults);
 
-        // 确保滑条有回调 —— 这就是你之前“关了又变 100%”的根因
-        if (masterSlider)
-        {
-            masterSlider.minValue = 0f;
-            masterSlider.maxValue = 1f;
-            masterSlider.wholeNumbers = false;
-            masterSlider.onValueChanged.AddListener(OnMasterChanged);
-        }
+        SetupSlider(masterSlider, v => { if (GlobalAudio.I) GlobalAudio.I.SetMaster01(v); UpdatePct(masterPercent, v); });
+        SetupSlider(bgmSlider,    v => { if (GlobalAudio.I) GlobalAudio.I.SetBgm01(v);    UpdatePct(bgmPercent,    v); });
+        SetupSlider(sfxSlider,    v => { if (GlobalAudio.I) GlobalAudio.I.SetSfx01(v);    UpdatePct(sfxPercent,    v); });
 
-        // 读存档或应用初始音量
-        float v = PlayerPrefs.HasKey(KEY) ? PlayerPrefs.GetFloat(KEY, initialVolume) : Mathf.Clamp01(initialVolume);
-        AudioListener.volume = Mathf.Clamp01(v);
-
-        // 同步 UI
-        if (masterSlider) masterSlider.SetValueWithoutNotify(AudioListener.volume);
-        UpdateLabel();
-
-        // 默认隐藏面板
         if (panel) panel.SetActive(false);
-
-        // 第一次运行没有存档时写入一份
-        if (!PlayerPrefs.HasKey(KEY)) Save();
     }
 
-    void OnDestroy()
+    void OnEnable() => SyncFromGlobal();
+
+    void SetupSlider(Slider s, System.Action<float> onChanged)
     {
-        if (openButton)  openButton.onClick.RemoveListener(OpenPanel);
-        if (closeButton) closeButton.onClick.RemoveListener(ClosePanel);
-        if (masterSlider) masterSlider.onValueChanged.RemoveListener(OnMasterChanged);
+        if (!s) return;
+        s.minValue = 0f; s.maxValue = 1f; s.wholeNumbers = false;
+        s.onValueChanged.AddListener(v => onChanged(v));
     }
 
-    // —— 面板控制 —— //
-    public void OpenPanel()
+    void SyncFromGlobal()
     {
-        if (!panel) return;
-        panel.SetActive(true);
-        if (masterSlider) masterSlider.SetValueWithoutNotify(AudioListener.volume);
-        UpdateLabel();
+        if (!GlobalAudio.I) return;
+        if (masterSlider) masterSlider.SetValueWithoutNotify(GlobalAudio.I.Master01);
+        if (bgmSlider)    bgmSlider.SetValueWithoutNotify(GlobalAudio.I.Bgm01);
+        if (sfxSlider)    sfxSlider.SetValueWithoutNotify(GlobalAudio.I.Sfx01);
+
+        UpdatePct(masterPercent, GlobalAudio.I.Master01);
+        UpdatePct(bgmPercent,    GlobalAudio.I.Bgm01);
+        UpdatePct(sfxPercent,    GlobalAudio.I.Sfx01);
     }
 
-    public void ClosePanel()
-    {
-        if (!panel) return;
-        panel.SetActive(false);
-    }
+    void UpdatePct(TMP_Text t, float v) { if (t) t.text = Mathf.RoundToInt(v*100f) + "%"; }
 
-    public void TogglePanel()
-    {
-        if (!panel) return;
-        if (panel.activeSelf) ClosePanel(); else OpenPanel();
-    }
+    public void OpenPanel()  { if (panel) { panel.SetActive(true);  SyncFromGlobal(); } }
+    public void ClosePanel() { if (panel) { panel.SetActive(false); } }
 
-    // —— 滑条回调（在 Awake 里已自动绑定）—— //
-    public void OnMasterChanged(float v)
+    void ResetToDefaults()
     {
-        AudioListener.volume = Mathf.Clamp01(v);
-        Save();
-        UpdateLabel();
-    }
+        if (GlobalAudio.I)
+        {
+            GlobalAudio.I.SetMaster01(defaultMaster);
+            GlobalAudio.I.SetBgm01(defaultBgm);
+            GlobalAudio.I.SetSfx01(defaultSfx);
+        }
+        if (masterSlider) masterSlider.SetValueWithoutNotify(defaultMaster);
+        if (bgmSlider)    bgmSlider.SetValueWithoutNotify(defaultBgm);
+        if (sfxSlider)    sfxSlider.SetValueWithoutNotify(defaultSfx);
 
-    // 可选：重置到“初始音量”（可绑到“重置”按钮）
-    public void ResetToInitial()
-    {
-        float v = Mathf.Clamp01(initialVolume);
-        AudioListener.volume = v;
-        Save();
-        if (masterSlider) masterSlider.SetValueWithoutNotify(v);
-        UpdateLabel();
-    }
-
-    // —— 辅助 —— //
-    private void Save()
-    {
-        PlayerPrefs.SetFloat(KEY, AudioListener.volume);
-        PlayerPrefs.Save();
-    }
-
-    private void UpdateLabel()
-    {
-        if (percentText)
-            percentText.text = Mathf.RoundToInt(AudioListener.volume * 100f) + "%";
+        UpdatePct(masterPercent, defaultMaster);
+        UpdatePct(bgmPercent,    defaultBgm);
+        UpdatePct(sfxPercent,    defaultSfx);
     }
 }

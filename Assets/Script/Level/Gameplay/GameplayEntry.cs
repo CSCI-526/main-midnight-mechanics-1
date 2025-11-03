@@ -6,8 +6,13 @@ public class GameplayEntry : MonoBehaviour
     [SerializeField] private LevelPack   fallbackPack;
     [SerializeField] private SceneFlow   sceneFlow;
 
-    [SerializeField] private ShopPanel   shopPanel;  // ← 只保留合并后的 ShopPanel
+    [SerializeField] private ShopPanel   shopPanel;
     [SerializeField] private GoldWallet  wallet;
+
+    // ★ 新增引用
+    [Header("End-of-Level UI")]
+    [SerializeField] private LevelClearUI clearUI;
+    [SerializeField] private SessionStats stats;
 
     GameSession session;
 
@@ -17,6 +22,9 @@ public class GameplayEntry : MonoBehaviour
         if (!sceneFlow) sceneFlow = FindFirstObjectByType<SceneFlow>(FindObjectsInactive.Include);
         if (!shopPanel) shopPanel = FindFirstObjectByType<ShopPanel>(FindObjectsInactive.Include);
         if (!wallet)    wallet    = FindFirstObjectByType<GoldWallet>(FindObjectsInactive.Include);
+
+        if (!clearUI) clearUI = FindFirstObjectByType<LevelClearUI>(FindObjectsInactive.Include);
+        if (!stats)   stats   = FindFirstObjectByType<SessionStats>(FindObjectsInactive.Include);
 
         session = GameSession.Instance ?? FindFirstObjectByType<GameSession>(FindObjectsInactive.Include);
     }
@@ -68,6 +76,7 @@ public class GameplayEntry : MonoBehaviour
 
     void HandleLevelEnded()
     {
+        // 金币奖励（保留你的逻辑）
         var finished = runner ? runner.Current : null;
         if (wallet && finished && finished.rewardGold > 0)
         {
@@ -75,6 +84,18 @@ public class GameplayEntry : MonoBehaviour
             Debug.Log($"[GameplayEntry] Reward +{finished.rewardGold} gold for '{finished.levelName}'.");
         }
 
+        // ★ 有通关面板 → 先展示统计，由玩家点击返回
+        if (clearUI && stats)
+        {
+            clearUI.Show(stats, onBackToSelect: () =>
+            {
+                if (session) session.ClearChallenge();
+                if (sceneFlow) sceneFlow.LoadLevelSelector();
+            });
+            return;
+        }
+
+        // ★ 没挂面板 → 走原有 fallback
         if (session && session.SelectedLevel)
         {
             session.ClearChallenge();
