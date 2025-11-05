@@ -90,5 +90,5 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   rect: {fileID: 8390082906704601672}
   icon: {fileID: 5997426262833118564}
-  hitSprite: {fileID: 0}
-  missSprite: {fileID: 0}
+  hitSprite: {fileID: 21300000, guid: 0ca919cd661cd1747a66b82630986056, type: 3}
+  missSprite: {fileID: 21300000, guid: 83cb62ea83df16844b6e75c8b1ae3269, type: 3}
