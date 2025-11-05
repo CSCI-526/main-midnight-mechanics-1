@@ -18,6 +18,11 @@ public sealed class ViewerHUD : MonoBehaviour
     [SerializeField] private Color gainColor   = new Color(0.6f, 1f, 0.6f);
     [SerializeField] private Color lossColor   = new Color(1f, 0.6f, 0.6f);
 
+    // ★ 缩写开关（>=1000 显示成 1.2K；也支持 M/B）
+    [Header("Abbreviation")]
+    [SerializeField] private bool abbreviateCounts = true;
+    [SerializeField, Min(100)] private int abbreviateFrom = 1000;
+
     float _flashTimer = 0f;
     Color _targetColor;
 
@@ -59,8 +64,10 @@ public sealed class ViewerHUD : MonoBehaviour
 
     void OnChanged(int current)
     {
-        if (mainText) mainText.text = $"{prefix}{current}";
-        if (_flashTimer <= 0f && mainText) mainText.color = normalColor;
+        if (!mainText) return;
+        string num = FormatCount(current);
+        mainText.text = $"{prefix}{num}";
+        if (_flashTimer <= 0f) mainText.color = normalColor;
     }
 
     void OnDelta(int delta)
@@ -71,9 +78,36 @@ public sealed class ViewerHUD : MonoBehaviour
 
         if (deltaText)
         {
-            deltaText.text = (gain ? "+" : "") + delta.ToString();
+            deltaText.text  = FormatSigned(delta);
             deltaText.color = _targetColor;
             deltaText.gameObject.SetActive(true);
         }
+    }
+
+    // === Abbrev helpers ===
+    string FormatCount(int v)
+    {
+        long a = Mathf.Max(0, v);
+        if (!abbreviateCounts || Mathf.Abs(v) < abbreviateFrom)
+            return a.ToString("N0");                     // 1,234 样式（可改成 "D" 保持无逗号）
+        return AbbrevInt(a);
+    }
+
+    string FormatSigned(int delta)
+    {
+        string sign = delta > 0 ? "+" : (delta < 0 ? "-" : "");
+        long mag = Mathf.Abs(delta);
+        string body = (!abbreviateCounts || mag < abbreviateFrom)
+                        ? mag.ToString("N0")
+                        : AbbrevInt(mag);
+        return sign + body;
+    }
+
+    // 与你捐赠里的 AbbrevUSD 风格一致（0.## 保留两位）
+    static string AbbrevInt(long val)
+    {
+        if (val >= 1_000_000_000) return $"{val / 1_000_000_000f:0.##}B";
+        if (val >= 1_000_000)     return $"{val / 1_000_000f:0.##}M";
+        /*>=*/                      return $"{val / 1_000f:0.##}K";
     }
 }
