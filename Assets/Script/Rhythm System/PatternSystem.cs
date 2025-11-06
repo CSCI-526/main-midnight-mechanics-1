@@ -58,6 +58,11 @@ public class PatternSystem : MonoBehaviour
     [Header("Burst Safety")]
     [SerializeField] private bool forceBurstCenterAnchors = true; // ★ 运行时把 Burst 的 X 锚点/枢轴强制居中
 
+
+    // For Analytics
+    [Header("Analytics")]
+    [SerializeField] private string currentLevelName = ""; // Set by LevelRunner
+
     // —— 外部驱动 —— 
     bool   chartMode  = true;
     double chartNowSec = 0.0;
@@ -147,6 +152,12 @@ public class PatternSystem : MonoBehaviour
             sfxSource.outputAudioMixerGroup = GlobalAudio.I.SfxGroup;
     }
 
+    // For Analytics
+    public void SetCurrentLevelName(string levelName)
+    {
+        currentLevelName = levelName;
+    }
+
     void Update()
     {
         
@@ -180,6 +191,10 @@ public class PatternSystem : MonoBehaviour
                 n.judged     = true;
                 n.judgedKind = JudgeKind.Miss;
                 n.widget.SetWrong();
+
+                // ANALYTICS Auto-miss
+                AnalyticsTracker.LogMiss(currentLevelName);
+
                 SetLabel("MISS");
                 FlashBar(JudgeKind.Miss);
 
@@ -349,6 +364,14 @@ public class PatternSystem : MonoBehaviour
         n.judged = true;
         n.judgedKind = zoneKindTap;
 
+        // ANALYTICS: Send immediately
+        switch (zoneKindTap)
+        {
+            case JudgeKind.Perfect: AnalyticsTracker.LogPerfect(currentLevelName); break;
+            case JudgeKind.Good: AnalyticsTracker.LogGood(currentLevelName); break;
+            case JudgeKind.Miss: AnalyticsTracker.LogMiss(currentLevelName); break;
+        }
+
         if (zoneKindTap == JudgeKind.Miss)
         {
             n.widget.SetWrong();
@@ -400,6 +423,14 @@ public class PatternSystem : MonoBehaviour
                 n.judgedKind = (zoneKind == JudgeKind.Perfect) ? JudgeKind.Perfect :
                                (zoneKind == JudgeKind.Good)    ? JudgeKind.Good    : JudgeKind.Miss;
 
+                //ANALYTICS
+                switch (n.judgedKind)
+                {
+                    case JudgeKind.Perfect: AnalyticsTracker.LogPerfect(currentLevelName); break;
+                    case JudgeKind.Good: AnalyticsTracker.LogGood(currentLevelName); break;
+                    case JudgeKind.Miss: AnalyticsTracker.LogMiss(currentLevelName); break;
+                }
+
                 if (n.judgedKind == JudgeKind.Miss)
                 {
                     n.widget.SetWrong();
@@ -450,6 +481,10 @@ public class PatternSystem : MonoBehaviour
 
         if (kind == JudgeKind.Perfect || kind == JudgeKind.Good)
         {
+            // ANALYTICS
+            if (kind == JudgeKind.Perfect) AnalyticsTracker.LogPerfect(currentLevelName); //analytics
+            else AnalyticsTracker.LogGood(currentLevelName); //analytics
+
             SetLabel(kind == JudgeKind.Perfect ? "PERFECT (Burst)" : "GOOD (Burst)");
             FlashBar(kind);
             ApplyViewerDelta(kind);
@@ -882,3 +917,4 @@ public class PatternSystem : MonoBehaviour
         _barFlashTimeLeft = 0f;
     }
 }
+
