@@ -1497,7 +1497,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   runner: {fileID: 1129485089}
-  fallbackPack: {fileID: 11400000, guid: a3cd7cd68225a44c881a4dc7e5877c24, type: 2}
+  fallbackPack: {fileID: 11400000, guid: 6d36e668379a31f4c805df51ecdb0b92, type: 2}
   sceneFlow: {fileID: 2076442495}
   shopPanel: {fileID: 385548366}
   wallet: {fileID: 204363595}
@@ -2676,6 +2676,7 @@ MonoBehaviour:
   missFlashSeconds: 0.1
   viewers: {fileID: 1170058757}
   forceBurstCenterAnchors: 1
+  currentLevelName: 
 --- !u!114 &385548357
 MonoBehaviour:
   m_ObjectHideFlags: 0
