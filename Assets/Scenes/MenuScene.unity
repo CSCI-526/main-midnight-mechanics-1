@@ -1517,8 +1517,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 66.5, y: 283.5}
-  m_SizeDelta: {x: 500, y: 50}
+  m_AnchoredPosition: {x: 23, y: 307}
+  m_SizeDelta: {x: 560.427, y: 98.83}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1665312428
 MonoBehaviour:
@@ -1567,8 +1567,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 55
-  m_fontSizeBase: 55
+  m_fontSize: 88
+  m_fontSizeBase: 88
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -1737,9 +1737,6 @@ MonoBehaviour:
   openButton: {fileID: 978687473}
   closeButton: {fileID: 767097636}
   resetButton: {fileID: 0}
-  defaultMaster: 1
-  defaultBgm: 1
-  defaultSfx: 1
 --- !u!4 &2063858472
 Transform:
   m_ObjectHideFlags: 0
@@ -1790,6 +1787,11 @@ MonoBehaviour:
   masterParam: MasterVol
   bgmParam: MusicVol
   sfxParam: SFXVol
+  defaultMaster: 0.8
+  defaultBgm: 0
+  defaultSfx: 0.8
+  muteFloorDb: -80
+  maxDb: 0
 --- !u!4 &2135231683
 Transform:
   m_ObjectHideFlags: 0

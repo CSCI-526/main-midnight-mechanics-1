@@ -25,16 +25,11 @@ public class SettingPanel : MonoBehaviour
     [SerializeField] private Button closeButton;
     [SerializeField] private Button resetButton;
 
-    [Header("Defaults")]
-    [Range(0f,1f)] [SerializeField] private float defaultMaster = 1f;
-    [Range(0f,1f)] [SerializeField] private float defaultBgm    = 1f;
-    [Range(0f,1f)] [SerializeField] private float defaultSfx    = 1f;
-
     void Awake()
     {
         if (openButton)  openButton.onClick.AddListener(OpenPanel);
         if (closeButton) closeButton.onClick.AddListener(ClosePanel);
-        if (resetButton) resetButton.onClick.AddListener(ResetToDefaults);
+        if (resetButton) resetButton.onClick.AddListener(ResetToGlobalDefaults);
 
         SetupSlider(masterSlider, v => { if (GlobalAudio.I) GlobalAudio.I.SetMaster01(v); UpdatePct(masterPercent, v); });
         SetupSlider(bgmSlider,    v => { if (GlobalAudio.I) GlobalAudio.I.SetBgm01(v);    UpdatePct(bgmPercent,    v); });
@@ -43,7 +38,16 @@ public class SettingPanel : MonoBehaviour
         if (panel) panel.SetActive(false);
     }
 
-    void OnEnable() => SyncFromGlobal();
+    void OnEnable()
+    {
+        SyncFromGlobal();
+        if (GlobalAudio.I != null) GlobalAudio.I.OnVolumesChanged += SyncFromGlobal;
+    }
+
+    void OnDisable()
+    {
+        if (GlobalAudio.I != null) GlobalAudio.I.OnVolumesChanged -= SyncFromGlobal;
+    }
 
     void SetupSlider(Slider s, System.Action<float> onChanged)
     {
@@ -64,25 +68,15 @@ public class SettingPanel : MonoBehaviour
         UpdatePct(sfxPercent,    GlobalAudio.I.Sfx01);
     }
 
-    void UpdatePct(TMP_Text t, float v) { if (t) t.text = Mathf.RoundToInt(v*100f) + "%"; }
+    void UpdatePct(TMP_Text t, float v) { if (t) t.text = Mathf.RoundToInt(v * 100f) + "%"; }
 
     public void OpenPanel()  { if (panel) { panel.SetActive(true);  SyncFromGlobal(); } }
     public void ClosePanel() { if (panel) { panel.SetActive(false); } }
 
-    void ResetToDefaults()
+    void ResetToGlobalDefaults()
     {
-        if (GlobalAudio.I)
-        {
-            GlobalAudio.I.SetMaster01(defaultMaster);
-            GlobalAudio.I.SetBgm01(defaultBgm);
-            GlobalAudio.I.SetSfx01(defaultSfx);
-        }
-        if (masterSlider) masterSlider.SetValueWithoutNotify(defaultMaster);
-        if (bgmSlider)    bgmSlider.SetValueWithoutNotify(defaultBgm);
-        if (sfxSlider)    sfxSlider.SetValueWithoutNotify(defaultSfx);
-
-        UpdatePct(masterPercent, defaultMaster);
-        UpdatePct(bgmPercent,    defaultBgm);
-        UpdatePct(sfxPercent,    defaultSfx);
+        if (!GlobalAudio.I) return;
+        GlobalAudio.I.ResetToDefaults();
+        SyncFromGlobal();
     }
 }

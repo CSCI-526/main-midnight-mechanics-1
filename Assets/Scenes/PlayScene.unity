@@ -2855,9 +2855,6 @@ MonoBehaviour:
   openButton: {fileID: 0}
   closeButton: {fileID: 1136987497}
   resetButton: {fileID: 0}
-  defaultMaster: 1
-  defaultBgm: 1
-  defaultSfx: 1
 --- !u!114 &385548369
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -7687,7 +7684,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 2333896512626076005, guid: b5ba38e8a8f522446b32c6d8ebda3d00, type: 3}
       propertyPath: m_AnchorMax.y
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 5617497280982832127, guid: b5ba38e8a8f522446b32c6d8ebda3d00, type: 3}
       propertyPath: m_Pivot.x
@@ -7769,9 +7766,17 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 5994815688725930277, guid: b5ba38e8a8f522446b32c6d8ebda3d00, type: 3}
+      propertyPath: m_AnchorMax.y
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 6320994023446404954, guid: b5ba38e8a8f522446b32c6d8ebda3d00, type: 3}
       propertyPath: m_AnchorMax.y
-      value: 0
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6856283923699728360, guid: b5ba38e8a8f522446b32c6d8ebda3d00, type: 3}
+      propertyPath: m_AnchorMax.y
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 6997424372936759665, guid: b5ba38e8a8f522446b32c6d8ebda3d00, type: 3}
       propertyPath: m_Name
@@ -7779,6 +7784,14 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6997424372936759665, guid: b5ba38e8a8f522446b32c6d8ebda3d00, type: 3}
       propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7094289115532889980, guid: b5ba38e8a8f522446b32c6d8ebda3d00, type: 3}
+      propertyPath: m_AnchorMax.y
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 7334144682286250479, guid: b5ba38e8a8f522446b32c6d8ebda3d00, type: 3}
+      propertyPath: m_AnchorMax.y
       value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []

@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 using UnityEngine.Audio;
 
@@ -20,9 +21,14 @@ public class GlobalAudio : MonoBehaviour
     [SerializeField] private string bgmParam    = "MusicVol";
     [SerializeField] private string sfxParam    = "SFXVol";
 
-    const string KEY_MASTER = "vol_master";
-    const string KEY_BGM    = "vol_bgm";
-    const string KEY_SFX    = "vol_sfx";
+    [Header("Defaults (used every run)")]
+    [Range(0f,1f)] [SerializeField] private float defaultMaster = 1f;
+    [Range(0f,1f)] [SerializeField] private float defaultBgm    = 0f; // Web 初始静音 BGM 可设 0
+    [Range(0f,1f)] [SerializeField] private float defaultSfx    = 1f;
+
+    [Header("dB Mapping")]
+    [SerializeField] private float muteFloorDb = -80f; // 0 → -80 dB
+    [SerializeField] private float maxDb       = 0f;    // 1 →   0 dB
 
     float _master01 = 1f, _bgm01 = 1f, _sfx01 = 1f;
     public float Master01 => _master01;
@@ -37,36 +43,78 @@ public class GlobalAudio : MonoBehaviour
         I = this;
         DontDestroyOnLoad(gameObject);
 
-        _master01 = PlayerPrefs.GetFloat(KEY_MASTER, 1f);
-        _bgm01    = PlayerPrefs.GetFloat(KEY_BGM,    1f);
-        _sfx01    = PlayerPrefs.GetFloat(KEY_SFX,    1f);
+        // 每次运行都用 Inspector 默认值（不持久化）
+        _master01 = Mathf.Clamp01(defaultMaster);
+        _bgm01    = Mathf.Clamp01(defaultBgm);
+        _sfx01    = Mathf.Clamp01(defaultSfx);
+
+        ApplyAll(); // 先应用一遍
+    }
+
+    void Start()
+    {
+        // 首帧补丁：等所有 AudioSource 绑定好 Output 再重应用两次，避免“初始不生效”
+        StartCoroutine(ReapplyAfterBootstrap());
+    }
+
+    IEnumerator ReapplyAfterBootstrap()
+    {
+        yield return new WaitForEndOfFrame();
+        ApplyAll();
+
+        double target = AudioSettings.dspTime + 0.05;
+        while (AudioSettings.dspTime < target) yield return null;
         ApplyAll();
     }
 
-    public void SetMaster01(float v){ _master01 = Mathf.Clamp01(v); SetDb(masterParam, _master01); Save(KEY_MASTER, _master01); }
-    public void SetBgm01   (float v){ _bgm01    = Mathf.Clamp01(v); SetDb(bgmParam,    _bgm01);    Save(KEY_BGM,    _bgm01);    }
-    public void SetSfx01   (float v){ _sfx01    = Mathf.Clamp01(v); SetDb(sfxParam,    _sfx01);    Save(KEY_SFX,    _sfx01);    }
+    // —— Public API —— //
+    public void SetMaster01(float v)
+    {
+        _master01 = Mathf.Clamp01(v);
+        SetDb(masterParam, _master01);
+        AudioListener.volume = _master01; // 兜底
+        OnVolumesChanged?.Invoke();
+    }
 
+    public void SetBgm01(float v)
+    {
+        _bgm01 = Mathf.Clamp01(v);
+        SetDb(bgmParam, _bgm01);
+        OnVolumesChanged?.Invoke();
+    }
+
+    public void SetSfx01(float v)
+    {
+        _sfx01 = Mathf.Clamp01(v);
+        SetDb(sfxParam, _sfx01);
+        OnVolumesChanged?.Invoke();
+    }
+
+    public void ResetToDefaults()
+    {
+        _master01 = Mathf.Clamp01(defaultMaster);
+        _bgm01    = Mathf.Clamp01(defaultBgm);
+        _sfx01    = Mathf.Clamp01(defaultSfx);
+        ApplyAll();
+        OnVolumesChanged?.Invoke();
+    }
+
+    /// 当你刚把 AudioSource 的 Output 指到 Music/SFX 组之后，立刻调用确保当前音量生效
+    public void ReapplyMixerNow() => ApplyAll();
+
+    // —— Internals —— //
     void ApplyAll()
     {
         SetDb(masterParam, _master01);
         SetDb(bgmParam,    _bgm01);
         SetDb(sfxParam,    _sfx01);
-        OnVolumesChanged?.Invoke();
+        AudioListener.volume = Mathf.Clamp01(_master01); // 再兜底一次
     }
 
     void SetDb(string param, float v01)
     {
         if (!mixer || string.IsNullOrEmpty(param)) return;
-        float db = (v01 <= 0.0001f) ? -80f : Mathf.Log10(v01) * 20f;
-        if (!mixer.SetFloat(param, db))
-            Debug.LogError($"[GlobalAudio] Param '{param}' not found on mixer '{mixer}'");
-    }
-
-    void Save(string key, float v)
-    {
-        PlayerPrefs.SetFloat(key, v);
-        PlayerPrefs.Save();
-        OnVolumesChanged?.Invoke();
+        float db = (v01 <= 0.0001f) ? muteFloorDb : Mathf.Clamp(20f * Mathf.Log10(v01), muteFloorDb, maxDb);
+        mixer.SetFloat(param, db);
     }
 }
