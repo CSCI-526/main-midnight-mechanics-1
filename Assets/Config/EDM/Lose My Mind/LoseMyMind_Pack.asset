@@ -14,5 +14,5 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   packName: Lose My Mind
   levels:
-  - {fileID: 11400000, guid: 6a52bbcad2d9c6b4da229e8fd66c4dc3, type: 2}
+  - {fileID: 11400000, guid: 0679fc58afbdb4bf1aaf6b0b16289338, type: 2}
   challengeStartGold: 120
