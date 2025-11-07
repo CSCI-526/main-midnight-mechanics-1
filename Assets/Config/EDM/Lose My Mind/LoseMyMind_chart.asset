@@ -18,46 +18,46 @@ MonoBehaviour:
   defaultLeadTimeSec: 2
   bars:
   - subdivision: 4
-    slots: 01000000000000000000000000000000
-    preDelaySec: 0
+    slots: 01000000000000000100000000000000
+    preDelaySec: 0.83
   - subdivision: 4
-    slots: 01000000000000000000000000000000
-    preDelaySec: 0
+    slots: 01000000000000000000000001000000
+    preDelaySec: 0.2
   - subdivision: 4
-    slots: 01000000000000000000000000000000
-    preDelaySec: 0
+    slots: 01000000000000000000000001000000
+    preDelaySec: 0.2
   - subdivision: 4
-    slots: 01000000000000000000000000000000
-    preDelaySec: 0
-  - subdivision: 4
-    slots: 01000000000000000000000000000000
-    preDelaySec: 0
-  - subdivision: 4
-    slots: 01000000010000000200000001000000
-    preDelaySec: 0
-  - subdivision: 4
-    slots: 00000000000000000100000000000000
-    preDelaySec: 0
-  - subdivision: 4
-    slots: 00000000000000000000000000000000
-    preDelaySec: 0
+    slots: 01000000000000000000000001000000
+    preDelaySec: 0.1
   - subdivision: 4
     slots: 01000000000000000100000000000000
-    preDelaySec: 0
+    preDelaySec: 0.1
   - subdivision: 4
-    slots: 02000000000000000100000000000000
-    preDelaySec: 0
+    slots: 01000000000000000100000001000000
+    preDelaySec: 0.05
+  - subdivision: 4
+    slots: 01000000000000000100000001000000
+    preDelaySec: 0.05
+  - subdivision: 4
+    slots: 01000000000000000100000001000000
+    preDelaySec: 0.05
   - subdivision: 4
     slots: 01000000000000000100000000000000
-    preDelaySec: -0.09999999
-  - subdivision: 5
-    slots: 0000000000000000000000000000000000000000
+    preDelaySec: 0.05
+  - subdivision: 4
+    slots: 02000000020000000200000002000000
+    preDelaySec: 0
+  - subdivision: 4
+    slots: 01000000020000000100000002000000
+    preDelaySec: 0
+  - subdivision: 4
+    slots: 01000000020000000100000002000000
     preDelaySec: 0
   - subdivision: 4
     slots: 02000000020000000100000001000000
     preDelaySec: 0
   - subdivision: 4
-    slots: 01000000010000000100000000000000
+    slots: 01000000010000000200000002000000
     preDelaySec: 0
   - subdivision: 4
     slots: 02000000020000000100000001000000
@@ -142,6 +142,9 @@ MonoBehaviour:
     preDelaySec: 0
   - subdivision: 8
     slots: 0100000000000000000000000000000000000000000000000000000000000000
+    preDelaySec: 0
+  - subdivision: 8
+    slots: 0000000000000000000000000000000000000000000000000000000000000000
     preDelaySec: 0
   - subdivision: 8
     slots: 0000000000000000000000000000000000000000000000000000000000000000
