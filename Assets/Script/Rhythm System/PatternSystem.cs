@@ -75,18 +75,8 @@ public class PatternSystem : MonoBehaviour
     [Header("Burst Safety")]
     [SerializeField] private bool forceBurstCenterAnchors = true; // 运行时把 Burst 的 X 锚点/枢轴强制居中
 
-<<<<<<< HEAD
-
-    // For Analytics
-    [Header("Analytics")]
-    [SerializeField] private string currentLevelName = ""; // Set by LevelRunner
-
-    // —— 外部驱动 —— 
-    bool   chartMode  = true;
-=======
     // —— 外部驱动 ——
     bool   chartMode   = true;
->>>>>>> parent of 155a4db (Revert "Merge branch 'main' of https://github.com/CSCI-526/main-midnight-mechanics-1")
     double chartNowSec = 0.0;
 
     enum JudgeKind { None, Perfect, Good, Miss }
@@ -173,12 +163,6 @@ public class PatternSystem : MonoBehaviour
         if (rhythmBar) _barDefaultColor = rhythmBar.color;
     }
 
-    // For Analytics
-    public void SetCurrentLevelName(string levelName)
-    {
-        currentLevelName = levelName;
-    }
-
     void Update()
     {
         if (GamePause.IsPaused) return;
@@ -210,16 +194,9 @@ public class PatternSystem : MonoBehaviour
             {
                 n.judged     = true;
                 n.judgedKind = JudgeKind.Miss;
-<<<<<<< HEAD
-                n.widget.SetWrong();
-
-                // ANALYTICS Auto-miss
-                AnalyticsTracker.LogMiss(currentLevelName);
-=======
 
                 // ★ Miss 也叠红色（更深）
                 TintNote(n.widget, n.judgedKind);
->>>>>>> parent of 155a4db (Revert "Merge branch 'main' of https://github.com/CSCI-526/main-midnight-mechanics-1")
 
                 SetLabel("MISS");
                 FlashBar(JudgeKind.Miss);
@@ -390,154 +367,9 @@ public class PatternSystem : MonoBehaviour
     {
         type = NoteType.Tap; zoneKind = JudgeKind.None;
 
-<<<<<<< HEAD
-        var n = _notes[iTap];
-        n.judged = true;
-        n.judgedKind = zoneKindTap;
-
-        // ANALYTICS: Send immediately
-        switch (zoneKindTap)
-        {
-            case JudgeKind.Perfect: AnalyticsTracker.LogPerfect(currentLevelName); break;
-            case JudgeKind.Good: AnalyticsTracker.LogGood(currentLevelName); break;
-            case JudgeKind.Miss: AnalyticsTracker.LogMiss(currentLevelName); break;
-        }
-
-        if (zoneKindTap == JudgeKind.Miss)
-        {
-            n.widget.SetWrong();
-            SetLabel("MISS");
-            FlashBar(JudgeKind.Miss);
-            ApplyViewerDelta(JudgeKind.Miss);
-            HitJudge.RaiseMiss();
-        }
-        else
-        {
-            n.widget.SetOk();
-            SetLabel(zoneKindTap == JudgeKind.Perfect ? "PERFECT" : "GOOD");
-            FlashBar(n.judgedKind);
-            ApplyViewerDelta(n.judgedKind);
-            if (n.judgedKind == JudgeKind.Perfect) HitJudge.RaisePerfect();
-            else                                    HitJudge.RaiseGood();
-
-            // ★ 只在 Good/Perfect 时播放一次音效
-            PlayJudgeSfxOnce(1f);
-        }
-
-        n.animStarted = false;
-        n.animT = 0f;
-        _notes[iTap] = n;
-        return true;
-    }
-
-    bool HandleKey_Double(KeyCode key)
-    {
-        int iDouble = PickRightmostInZones(NoteType.Double, out JudgeKind zoneKind);
-        if (iDouble < 0) return false;
-
-        var n = _notes[iDouble];
-
-        if (!n.dblAwaiting)
-        {
-            n.dblAwaiting = true;
-            n.dblFirstKey = key;
-            n.dblExpireU  = Time.unscaledTime + doubleSecondGapSec;
-            _notes[iDouble] = n;
-            SetLabel("DOUBLE…");
-            return true; // 消耗按键，但不播音
-        }
-        else
-        {
-            if (key != n.dblFirstKey && Time.unscaledTime <= n.dblExpireU && IsNoteInAnyZone(iDouble))
-            {
-                n.judged = true;
-                n.judgedKind = (zoneKind == JudgeKind.Perfect) ? JudgeKind.Perfect :
-                               (zoneKind == JudgeKind.Good)    ? JudgeKind.Good    : JudgeKind.Miss;
-
-                //ANALYTICS
-                switch (n.judgedKind)
-                {
-                    case JudgeKind.Perfect: AnalyticsTracker.LogPerfect(currentLevelName); break;
-                    case JudgeKind.Good: AnalyticsTracker.LogGood(currentLevelName); break;
-                    case JudgeKind.Miss: AnalyticsTracker.LogMiss(currentLevelName); break;
-                }
-
-                if (n.judgedKind == JudgeKind.Miss)
-                {
-                    n.widget.SetWrong();
-                    SetLabel("MISS");
-                    FlashBar(JudgeKind.Miss);
-                    ApplyViewerDelta(JudgeKind.Miss);
-                    HitJudge.RaiseMiss();
-                }
-                else
-                {
-                    n.widget.SetOk();
-                    SetLabel(n.judgedKind == JudgeKind.Perfect ? "PERFECT (2x)" : "GOOD (2x)");
-                    FlashBar(n.judgedKind);
-                    ApplyViewerDelta(n.judgedKind);
-                    if (n.judgedKind == JudgeKind.Perfect) HitJudge.RaisePerfect();
-                    else                                    HitJudge.RaiseGood();
-
-                    // ★ Double 的第二击成功才播音，音量乘倍
-                    PlayJudgeSfxOnce(doubleSfxMultiplier);
-                }
-
-                n.animStarted = false; n.animT = 0f;
-                _notes[iDouble] = n;
-                return true;
-            }
-        }
-        return false;
-    }
-
-    void HandleKey_Burst(KeyCode key)
-    {
-        // 若任意 Burst 与 Good/Perfect 区域有水平重叠，则判成功
-        JudgeKind kind = JudgeKind.None;
-
-        for (int i = 0; i < _bursts.Count; i++)
-        {
-            var b = _bursts[i];
-            if (!b.alive || !b.widget) continue;
-
-            GetBurstEdgesInTrack(b.widget.Rect, out float leftX, out float rightX);
-
-            bool overlapPerfect = SegmentIntersectsZone(leftX, rightX, zonePerfect, out _);
-            bool overlapGood    = SegmentIntersectsZone(leftX, rightX, zoneGood,    out _);
-
-            if (overlapPerfect) { kind = JudgeKind.Perfect; break; }
-            if (overlapGood)    { kind = JudgeKind.Good;    /*继续看看有没有Perfect*/ }
-        }
-
-        if (kind == JudgeKind.Perfect || kind == JudgeKind.Good)
-        {
-            // ANALYTICS
-            if (kind == JudgeKind.Perfect) AnalyticsTracker.LogPerfect(currentLevelName); //analytics
-            else AnalyticsTracker.LogGood(currentLevelName); //analytics
-
-            SetLabel(kind == JudgeKind.Perfect ? "PERFECT (Burst)" : "GOOD (Burst)");
-            FlashBar(kind);
-            ApplyViewerDelta(kind);
-            if (kind == JudgeKind.Perfect) HitJudge.RaisePerfect();
-            else                            HitJudge.RaiseGood();
-
-            PlayJudgeSfxOnce(1f);
-        }
-    }
-
-    // ===== 判定/拾取 =====
-    int PickRightmostInZones(NoteType type, out JudgeKind zoneKind)
-    {
-        int idxPerfect = -1; float xPerfect = float.NegativeInfinity;
-        int idxGood    = -1; float xGood    = float.NegativeInfinity;
-        int idxMiss    = -1; float xMiss    = float.NegativeInfinity;
-        zoneKind = JudgeKind.None;
-=======
         int idxPerfect = -1, idxGood = -1, idxMiss = -1;
         float xPerfect = float.NegativeInfinity, xGood = float.NegativeInfinity, xMiss = float.NegativeInfinity;
         NoteType tPerfect = NoteType.Tap, tGood = NoteType.Tap, tMiss = NoteType.Tap;
->>>>>>> parent of 155a4db (Revert "Merge branch 'main' of https://github.com/CSCI-526/main-midnight-mechanics-1")
 
         for (int i = 0; i < _notes.Count; i++)
         {
@@ -1122,4 +954,3 @@ public class PatternSystem : MonoBehaviour
         _barFlashTimeLeft = 0f;
     }
 }
-
