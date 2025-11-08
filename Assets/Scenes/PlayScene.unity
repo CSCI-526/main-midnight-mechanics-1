@@ -2659,9 +2659,22 @@ MonoBehaviour:
   prewarmDouble: 6
   prewarmBurst: 4
   spawnLeftPaddingPx: 40
-  hitScaleFactor: 1.7
+  hitScaleFactor: 2
   scaleSeconds: 0.2
-  doubleSecondGapSec: 0.08
+  useOverlayTint: 1
+  tintPerfect: {r: 0.25, g: 1, b: 0.35, a: 1}
+  tintGood: {r: 0.35, g: 0.7, b: 1, a: 1}
+  tintMiss: {r: 1, g: 0.3, b: 0.3, a: 1}
+  tintAlpha: 0.85
+  tintFadeIn: 0.06
+  tintHold: 0.06
+  tintFadeOut: 0.22
+  burstHitTint: {r: 0.8392157, g: 0, b: 0.015408116, a: 1}
+  burstTintAlpha: 0.85
+  burstTintIn: 0.05
+  burstTintHold: 0.03
+  burstTintOut: 0.18
+  doubleSecondGapSec: 0.1
   judgeLabel: {fileID: 0}
   sfxSource: {fileID: 2145422199}
   keyPressSfx: {fileID: 8300000, guid: 0f6d7b23efcee0647886e9903423848a, type: 3}
@@ -2669,9 +2682,9 @@ MonoBehaviour:
   doubleSfxMultiplier: 2
   rhythmBar: {fileID: 1352646732}
   perfectFlashColor: {r: 0, g: 0.5256064, b: 0, a: 1}
-  goodFlashColor: {r: 0.37234485, g: 1, b: 0.332884, a: 1}
+  goodFlashColor: {r: 0.6, g: 0.8, b: 1, a: 1}
   missFlashColor: {r: 1, g: 0.4, b: 0.4, a: 1}
-  perfectFlashSeconds: 0.08
+  perfectFlashSeconds: 0.3
   goodFlashSeconds: 0.08
   missFlashSeconds: 0.1
   viewers: {fileID: 1170058757}
@@ -2729,6 +2742,8 @@ MonoBehaviour:
   normalColor: {r: 1, g: 0.44070077, b: 0.44070077, a: 1}
   gainColor: {r: 0.6, g: 1, b: 0.6, a: 1}
   lossColor: {r: 1, g: 0.09029645, b: 0.09029645, a: 1}
+  abbreviateCounts: 1
+  abbreviateFrom: 1000
 --- !u!114 &385548364
 MonoBehaviour:
   m_ObjectHideFlags: 0
