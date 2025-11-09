@@ -153,7 +153,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -25.9, y: -33.348}
+  m_AnchoredPosition: {x: -25.899994, y: -33.348}
   m_SizeDelta: {x: -275.27, y: -84.455}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1055544
@@ -2312,19 +2312,7 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 1477944749}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 1613903985}
-        m_TargetAssemblyTypeName: LevelSelectorUI, Assembly-CSharp
-        m_MethodName: SelectPackAndPlay
-        m_Mode: 2
-        m_Arguments:
-          m_ObjectArgument: {fileID: 11400000, guid: f834da8da5711384eaeb0d8fedfceff7, type: 2}
-          m_ObjectArgumentAssemblyTypeName: LevelPack, Assembly-CSharp
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
 --- !u!114 &1477944749
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2478,8 +2466,6 @@ GameObject:
   m_Component:
   - component: {fileID: 1613903984}
   - component: {fileID: 1613903985}
-  - component: {fileID: 1613903986}
-  - component: {fileID: 1613903987}
   - component: {fileID: 1613903988}
   m_Layer: 0
   m_Name: Level Selector UI
@@ -2516,41 +2502,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   sceneFlow: {fileID: 1625988654}
---- !u!114 &1613903986
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1613903983}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 919291b11c9911249b7789cc939ad4d2, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  overlay: {fileID: 1613903987}
---- !u!114 &1613903987
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1613903983}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 60748bd29ad569847ab727cdd6ea216c, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  root: {fileID: 0}
-  picture: {fileID: 0}
-  nextButton: {fileID: 0}
-  exitButton: {fileID: 0}
-  openButtons:
-  - {fileID: 275177716}
-  pages:
-  - {fileID: 8546553829415843028, guid: 14199e8be62f8c145ad4c673b370417c, type: 3}
-  viewportScale: 0.7
-  pauseOnShow: 0
 --- !u!114 &1613903988
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2569,9 +2520,11 @@ MonoBehaviour:
   exitButton: {fileID: 505206814}
   entries:
   - button: {fileID: 7931682}
-    pack: {fileID: 11400000, guid: f834da8da5711384eaeb0d8fedfceff7, type: 2}
-  - button: {fileID: 0}
-    pack: {fileID: 11400000, guid: 6d36e668379a31f4c805df51ecdb0b92, type: 2}
+    pack: {fileID: 11400000, guid: ebdd39c442c80cc478f74ea6a25ae8a2, type: 2}
+  - button: {fileID: 1074829484}
+    pack: {fileID: 11400000, guid: 0471d914a0e474c48a51eee0aa676ed2, type: 2}
+  - button: {fileID: 324690775}
+    pack: {fileID: 11400000, guid: bb0ff0d9c46b0784b9da01f27094679f, type: 2}
   - button: {fileID: 275177716}
     pack: {fileID: 11400000, guid: d0ca25d9efda66d44b75c0d11c08d004, type: 2}
   sceneFlow: {fileID: 1625988654}
@@ -3252,7 +3205,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &2145896093
 RectTransform:
   m_ObjectHideFlags: 0
