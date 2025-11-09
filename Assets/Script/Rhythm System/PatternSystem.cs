@@ -736,18 +736,7 @@ public class PatternSystem : MonoBehaviour
 
     static KeyCode[] BuildPlayableKeys()
     {
-        var list = new List<KeyCode>(80);
-        for (var k = KeyCode.A; k <= KeyCode.Z; k++) list.Add(k);
-        for (var k = KeyCode.Alpha0; k <= KeyCode.Alpha9; k++) list.Add(k);
-        list.Add(KeyCode.Space);
-        list.Add(KeyCode.UpArrow); list.Add(KeyCode.DownArrow);
-        list.Add(KeyCode.LeftArrow); list.Add(KeyCode.RightArrow);
-        list.Add(KeyCode.Period); list.Add(KeyCode.Comma);
-        list.Add(KeyCode.Semicolon); list.Add(KeyCode.Quote);
-        list.Add(KeyCode.Slash); list.Add(KeyCode.Backslash);
-        list.Add(KeyCode.LeftBracket); list.Add(KeyCode.RightBracket);
-        list.Add(KeyCode.Minus); list.Add(KeyCode.Equals);
-        return list.ToArray();
+        return new[] { KeyCode.W, KeyCode.O };
     }
 
     List<KeyCode> GetPlayableKeysDownThisFrame()

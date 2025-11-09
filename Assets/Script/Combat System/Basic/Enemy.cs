@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization; // ★ 为了 FormerlySerializedAs
 
 [RequireComponent(typeof(Rigidbody2D), typeof(Collider2D))]
 public class Enemy : MonoBehaviour
@@ -15,8 +16,22 @@ public class Enemy : MonoBehaviour
     [Header("On Touch")]
     [SerializeField] private bool clearAllOnTouch = true;
     [SerializeField] private bool destroyOnTouch  = true;
-    [SerializeField] private bool useLossOverride = false;
-    [SerializeField] private Vector2Int touchLossOverride = new Vector2Int(200, 250);
+
+    // —— 旧：绝对掉粉（保留以免 Prefab 崩；建议以后不再使用）——
+    [FormerlySerializedAs("useLossOverride")]
+    [SerializeField, Tooltip("Legacy: 使用绝对掉粉范围（不再推荐）。")]
+    private bool useAbsoluteLossOverride = false;
+
+    [FormerlySerializedAs("touchLossOverride")]
+    [SerializeField, Tooltip("Legacy: 碰撞时的绝对掉粉（人数）范围。")]
+    private Vector2Int touchLossOverrideLegacy = new Vector2Int(200, 250);
+
+    // —— 新：百分比掉粉（推荐）——
+    [SerializeField, Tooltip("使用百分比掉粉（建议）")]
+    private bool usePercentOverride = true;
+
+    [SerializeField, Tooltip("碰撞一次的掉粉百分比区间（相对当前观众数）。例如 6~9 表示掉 6%~9%")]
+    private Vector2 touchLossPercentOverride = new Vector2(6f, 9f);
 
     // --- 命中反馈（无需改技能） ---
     [Header("Hit Feedback")]
@@ -28,10 +43,10 @@ public class Enemy : MonoBehaviour
     [SerializeField] private float shakeDamp = 12f;
 
     private float _hitStopUntil;
-    private Vector2 _shakePrev;     // 上一帧的抖动位移
-    private Vector2 _shakeCurr;     // 当前帧的抖动位移
-    private float _shakeAmp;        // 当前抖动幅度（逐帧衰减）
-    private float _shakeSeed;       // 每只敌人一份噪声种子
+    private Vector2 _shakePrev;
+    private Vector2 _shakeCurr;
+    private float _shakeAmp;
+    private float _shakeSeed;
 
     // Internals
     private Transform   _target;
@@ -69,11 +84,10 @@ public class Enemy : MonoBehaviour
             }
         }
 
-        // 计算抖动位移（视觉位移，使用差分避免累积漂移）
+        // 抖动位移（差分）
         Vector2 shakeDelta = Vector2.zero;
         if (_shakeAmp > 0f)
         {
-            // 用 Perlin 噪声做更“连贯”的抖动
             float t = Time.time;
             float nx = Mathf.PerlinNoise(_shakeSeed, t * 50f) * 2f - 1f;
             float ny = Mathf.PerlinNoise(_shakeSeed + 123.45f, t * 50f) * 2f - 1f;
@@ -82,12 +96,10 @@ public class Enemy : MonoBehaviour
             shakeDelta = _shakeCurr - _shakePrev;
             _shakePrev = _shakeCurr;
 
-            // 衰减
             _shakeAmp -= shakeDamp * Time.fixedDeltaTime * _shakeAmp;
             if (_shakeAmp <= 0.001f) { _shakeAmp = 0f; _shakePrev = _shakeCurr = Vector2.zero; }
         }
 
-        // 基于差分位移的移动（不会把抖动永久写入位置）
         Vector2 totalMove = chaseVel * Time.fixedDeltaTime + shakeDelta;
         _rb.MovePosition(_rb.position + totalMove);
     }
@@ -101,8 +113,20 @@ public class Enemy : MonoBehaviour
         var viewers = col.GetComponentInParent<ViewerSystem>();
         if (!viewers) return;
 
-        if (useLossOverride) viewers.LoseRandomInRange(touchLossOverride);
-        else                 viewers.LoseRandomInRange(viewers.DefaultTouchLossRange);
+        // —— 掉粉逻辑：优先百分比，其次兼容旧绝对值 —— 
+        if (usePercentOverride)
+        {
+            viewers.LoseRandomPercentInRange(touchLossPercentOverride);
+        }
+        else if (useAbsoluteLossOverride)
+        {
+            viewers.LoseRandomInRange(touchLossOverrideLegacy);
+        }
+        else
+        {
+            // 使用系统默认的百分比区间
+            viewers.LoseRandomPercentInRange(viewers.DefaultTouchLossPercentRange);
+        }
 
         if (clearAllOnTouch) KillAll();
         else if (destroyOnTouch) Destroy(gameObject);
@@ -127,15 +151,14 @@ public class Enemy : MonoBehaviour
         foreach (var e in snapshot) if (e) Destroy(e.gameObject);
     }
 
-    // —— 供 EnemyHealth 调用：命中停顿 + 抖动（参数可覆盖默认值）——
+    // —— 供 EnemyHealth 调用：命中停顿 + 抖动 —— 
     public void HitPauseAndShake(float stopSeconds = -1f, float shakeAmplitude = -1f)
     {
         float dur = (stopSeconds > 0f) ? stopSeconds : hitStopSecondsDefault;
         _hitStopUntil = Time.time + dur;
 
         float amp = (shakeAmplitude >= 0f) ? shakeAmplitude : shakeAmplitudeDefault;
-        _shakeAmp = Mathf.Max(_shakeAmp, amp);      // 叠加命中时取较大幅度
-        // 立即刷新一次抖动位移，避免第一帧不动
+        _shakeAmp = Mathf.Max(_shakeAmp, amp);
         _shakePrev = _shakeCurr = Vector2.zero;
     }
 }

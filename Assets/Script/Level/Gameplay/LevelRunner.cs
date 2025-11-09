@@ -88,7 +88,7 @@ public class LevelRunner : MonoBehaviour
         pattern.EnableChartMode(true);
 
         // ANALYTICS: Pass level name
-        if (pattern) pattern.SetCurrentLevelName(Current.levelName);
+        //if (pattern) pattern.SetCurrentLevelName(Current.levelName);
 
         // 生成时间轴（含 Burst）
         timeline      = Current.chart.BuildTimeline();

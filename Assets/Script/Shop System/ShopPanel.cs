@@ -4,7 +4,6 @@ using UnityEngine;
 using UnityEngine.UI;
 using Game.Skills; 
 
-
 public sealed class ShopPanel : MonoBehaviour
 {
     [Header("Panel Root & Button")]
@@ -12,7 +11,7 @@ public sealed class ShopPanel : MonoBehaviour
     [SerializeField] private Button     nextButton;
 
     [Header("数据")]
-    [SerializeField] private SkillLibrary library;      // ★ 仍引用 ScriptableObject 资源
+    [SerializeField] private SkillLibrary library; 
     [SerializeField] private PlayerSkills playerSkills;
 
     [Header("UI Roots")]
@@ -44,12 +43,13 @@ public sealed class ShopPanel : MonoBehaviour
         {
             nextButton.onClick.RemoveAllListeners();
             nextButton.onClick.AddListener(HandleNext);
+            nextButton.interactable = false;     // ★ 初始先灰
         }
 
         BuildImplToIdMap();
         BuildCardsFromScene();
         SyncFromPlayerSkills();
-        UpdateContinueInteractable();
+        UpdateContinueInteractable();            // ★ 按已装备数量决定是否点亮
     }
 
     void OnEnable()  { if (playerSkills) playerSkills.OnChanged += HandleEquipChanged; }
@@ -82,7 +82,12 @@ public sealed class ShopPanel : MonoBehaviour
         cb?.Invoke();
     }
 
-    private void HandleNext() => Hide();
+    // ★ 兜底：未满足条件不可继续
+    private void HandleNext()
+    {
+        if (!CanContinue()) return;
+        Hide();
+    }
 
     public void SetNextInteractable(bool on)
     {
@@ -100,10 +105,17 @@ public sealed class ShopPanel : MonoBehaviour
 
     void HandleEquipChanged() => UpdateContinueInteractable();
 
+    // ★ 至少装备 1 个才可继续
+    bool CanContinue()
+    {
+        return playerSkills != null
+            && playerSkills.Actives != null
+            && playerSkills.Actives.Count >= 1;
+    }
+
     void UpdateContinueInteractable()
     {
-        // 目前按你的要求：一直可点
-        SetNextInteractable(true);
+        SetNextInteractable(CanContinue());
     }
 
     // ---------- 映射 ----------
