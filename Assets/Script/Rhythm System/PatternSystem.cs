@@ -75,6 +75,7 @@ public class PatternSystem : MonoBehaviour
     [Header("Burst Safety")]
     [SerializeField] private bool forceBurstCenterAnchors = true; // 运行时把 Burst 的 X 锚点/枢轴强制居中
 
+
     // —— 外部驱动 ——
     bool   chartMode   = true;
     double chartNowSec = 0.0;
@@ -163,6 +164,7 @@ public class PatternSystem : MonoBehaviour
         if (rhythmBar) _barDefaultColor = rhythmBar.color;
     }
 
+
     void Update()
     {
         if (GamePause.IsPaused) return;
@@ -177,27 +179,65 @@ public class PatternSystem : MonoBehaviour
         float spawnLeftX = GetSpawnLeftX();
         float missRightT = GetZoneRightXInTrack(zoneMiss);
 
-        // 推进 Note 位置 & 右侧越界自动 Miss
+        // // 推进 Note 位置 & 右侧越界自动 Miss
+        // for (int i = 0; i < _notes.Count; i++)
+        // {
+        //     var n = _notes[i];
+        //     if (!n.widget || n.judged) continue;
+
+        //     float tRaw = 0f;
+        //     if (n.leadTimeSec > 0f)
+        //         tRaw = (float)((chartNowSec - n.departSec) / n.leadTimeSec);
+        //     float x = Mathf.LerpUnclamped(spawnLeftX, centerRowX, tRaw);
+        //     SetX_Unclamped(n.widget.Rect, x);
+
+        //     float cxTrack = GetRectCenterXInTrack(n.widget.Rect);
+        //     if (cxTrack > missRightT && chartNowSec > n.tStartSec)
+        //     {
+        //         n.judged     = true;
+        //         n.judgedKind = JudgeKind.Miss;
+
+        //         // ANALYTICS Auto-miss
+        //         // AnalyticsTracker.LogMiss(currentLevelName);
+        //         AnalyticsTracker.LogMiss();
+
+
+        //         // ★ Miss 也叠红色（更深）
+        //         TintNote(n.widget, n.judgedKind);
+
+        //         SetLabel("MISS");
+        //         FlashBar(JudgeKind.Miss);
+        //         ApplyViewerDelta(JudgeKind.Miss);
+        //         HitJudge.RaiseMiss();
+
+        //         n.animStarted = false;
+        //         n.animT = 0f;
+        //         _notes[i] = n;
+        //     }
+        // }
         for (int i = 0; i < _notes.Count; i++)
         {
             var n = _notes[i];
             if (!n.widget || n.judged) continue;
 
+            // Update position
             float tRaw = 0f;
             if (n.leadTimeSec > 0f)
                 tRaw = (float)((chartNowSec - n.departSec) / n.leadTimeSec);
             float x = Mathf.LerpUnclamped(spawnLeftX, centerRowX, tRaw);
             SetX_Unclamped(n.widget.Rect, x);
 
-            float cxTrack = GetRectCenterXInTrack(n.widget.Rect);
-            if (cxTrack > missRightT && chartNowSec > n.tStartSec)
+            float cx = GetRectCenterXInTrack(n.widget.Rect);
+
+            // ---------------------------
+            // Single-note auto-miss
+            if (n.type == NoteType.Tap && cx > missRightT && chartNowSec > n.tStartSec)
             {
-                n.judged     = true;
+                n.judged = true;
                 n.judgedKind = JudgeKind.Miss;
+                AnalyticsTracker.LogMiss(); //analytics
 
-                // ★ Miss 也叠红色（更深）
                 TintNote(n.widget, n.judgedKind);
-
                 SetLabel("MISS");
                 FlashBar(JudgeKind.Miss);
                 ApplyViewerDelta(JudgeKind.Miss);
@@ -206,8 +246,39 @@ public class PatternSystem : MonoBehaviour
                 n.animStarted = false;
                 n.animT = 0f;
                 _notes[i] = n;
+                continue;
+            }
+
+            // ---------------------------
+            // Double-note auto-miss analytics
+            if (n.type == NoteType.Double)
+            {
+                bool passedMissZone = cx > missRightT && chartNowSec > n.tStartSec; // never pressed
+                bool expiredAwaiting = n.dblAwaiting && Time.unscaledTime > n.dblExpireU; // first key pressed but second missed
+
+                if (passedMissZone || expiredAwaiting)
+                {
+                    n.judged = true;
+                    n.judgedKind = JudgeKind.Miss;
+
+                    AnalyticsTracker.LogMiss(); //analytics
+                    DoubleNoteAnalyticsTracker.LogMiss();//analytics
+
+                    TintNote(n.widget, n.judgedKind);
+                    SetLabel("MISS");
+                    FlashBar(JudgeKind.Miss);
+                    ApplyViewerDelta(JudgeKind.Miss);
+                    HitJudge.RaiseMiss();
+
+                    n.animStarted = false;
+                    n.animT = 0f;
+                    _notes[i] = n;
+                    continue;
+                }
             }
         }
+
+
 
         // 推进 Burst
         for (int i = _bursts.Count - 1; i >= 0; i--)
@@ -425,6 +496,14 @@ public class PatternSystem : MonoBehaviour
         n.judged = true;
         n.judgedKind = zoneKindTap;
 
+        //analytics
+        switch (zoneKindTap)
+        {
+            case JudgeKind.Perfect: AnalyticsTracker.LogPerfect(); break;
+            case JudgeKind.Good:    AnalyticsTracker.LogGood();    break;
+            case JudgeKind.Miss:    AnalyticsTracker.LogMiss();    break;
+        }
+
         // ★ 用叠色替代换图：Perfect/Good/Miss 各自染色；强度由 tintAlpha 控
         TintNote(n.widget, n.judgedKind);
 
@@ -472,6 +551,22 @@ public class PatternSystem : MonoBehaviour
             var k = zoneKindAtPick;
             if (k == JudgeKind.None) k = JudgeKind.Good;
             n.judgedKind = k;
+
+            //analytics
+            switch (n.judgedKind)
+            {
+                case JudgeKind.Perfect: AnalyticsTracker.LogPerfect(); break;
+                case JudgeKind.Good:    AnalyticsTracker.LogGood();    break;
+                case JudgeKind.Miss:    AnalyticsTracker.LogMiss();    break;
+            }
+
+            //for double notes - analytics red pellet
+            switch (n.judgedKind)
+            {
+                case JudgeKind.Perfect: DoubleNoteAnalyticsTracker.LogPerfect(); break;
+                case JudgeKind.Good:    DoubleNoteAnalyticsTracker.LogGood(); break;
+                case JudgeKind.Miss:    DoubleNoteAnalyticsTracker.LogMiss(); break;
+            }
 
             // ★ 叠色
             TintNote(n.widget, n.judgedKind);
@@ -523,6 +618,11 @@ public class PatternSystem : MonoBehaviour
 
         if (anyOverlap && (kind == JudgeKind.Perfect || kind == JudgeKind.Good))
         {
+
+            // // ANALYTICS
+            if (kind == JudgeKind.Perfect) AnalyticsTracker.LogPerfect();
+            else AnalyticsTracker.LogGood();
+
             SetLabel(kind == JudgeKind.Perfect ? "PERFECT (Burst)" : "GOOD (Burst)");
             FlashBar(kind);
             ApplyViewerDelta(kind);
