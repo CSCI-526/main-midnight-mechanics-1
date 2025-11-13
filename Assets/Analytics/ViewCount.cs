@@ -52,11 +52,22 @@ public class ViewCount : MonoBehaviour
             //Debug.LogWarning($"[ViewerAnalytics] No AnalyticsSession found! Generated fallback ID: {sess_id_no}");
         }
 
-        // Get song name
-        if (SongSelection.Instance != null && !string.IsNullOrEmpty(SongSelection.Instance.CurrentSongName))
+        // // Get song name
+        // if (SongSelection.Instance != null && !string.IsNullOrEmpty(SongSelection.Instance.CurrentSongName))
+        //     songName = SongSelection.Instance.CurrentSongName;
+        // else
+        //     songName = SceneManager.GetActiveScene().name;
+        // Determine level name (Challenge songs or Tutorial)
+        if (SongSelection.Instance != null &&
+            !string.IsNullOrEmpty(SongSelection.Instance.CurrentSongName) &&
+            SongSelection.Instance.CurrentSongName != "Unknown")
+        {
             songName = SongSelection.Instance.CurrentSongName;
+        }
         else
-            songName = SceneManager.GetActiveScene().name;
+        {
+            songName = "Tutorial";
+        }
 
         //Debug.Log($"[ViewerAnalytics] Song: {songName}");
 

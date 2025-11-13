@@ -139,12 +139,25 @@ public class AnalyticsTracker : MonoBehaviour
         // Debug.Log($"[AnalyticsTracker] Linked to global session: {sess_id_no}");
     }
 
+    // private string GetCurrentLevelName()
+    // {
+    //     if (SongSelection.Instance != null && !string.IsNullOrEmpty(SongSelection.Instance.CurrentSongName))
+    //         return SongSelection.Instance.CurrentSongName;
+
+    //     return "Unknown_Level";
+    // }
     private string GetCurrentLevelName()
     {
-        if (SongSelection.Instance != null && !string.IsNullOrEmpty(SongSelection.Instance.CurrentSongName))
+        // If a valid song has been selected (Challenge songs)
+        if (SongSelection.Instance != null &&
+            !string.IsNullOrEmpty(SongSelection.Instance.CurrentSongName) &&
+            SongSelection.Instance.CurrentSongName != "Unknown")
+        {
             return SongSelection.Instance.CurrentSongName;
+        }
 
-        return "Unknown_Level";
+        // Otherwise, it's the Tutorial level
+        return "Tutorial";
     }
 
     public void TrackHitAuto(string judgement)
