@@ -82,12 +82,34 @@ public sealed class ShopPanel : MonoBehaviour
         cb?.Invoke();
     }
 
-    // ★ 兜底：未满足条件不可继续
+    // // ★ 兜底：未满足条件不可继续
+    // private void HandleNext()
+    // {
+    //     if (!CanContinue()) return;
+    //     Hide();
+    // }
+
     private void HandleNext()
     {
         if (!CanContinue()) return;
+
+        // Analytics Log currently equipped skills
+        if (playerSkills != null)
+        {
+            List<string> equippedNames = new List<string>();
+            foreach (var id in playerSkills.Actives)
+            {
+                equippedNames.Add(id.ToString());
+            }
+
+            SkillsTracker.Instance?.LogEquippedSkills(equippedNames);
+        }
+
         Hide();
     }
+
+
+
 
     public void SetNextInteractable(bool on)
     {
