@@ -10,15 +10,15 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 82f1674aab31d7e4bbf7a0aedb396997, type: 3}
-  m_Name: Natural
+  m_Name: Centuires
   m_EditorClassIdentifier: 
   levelName: Level
-  chart: {fileID: 11400000, guid: f1463a1b6df703545bea5edd37b0ce46, type: 2}
-  bgm: {fileID: 8300000, guid: 0e987c4cb0680094990aaaa85324f514, type: 3}
-  levelDurationSeconds: 187
+  chart: {fileID: 11400000, guid: d23e60c17f59d9842a053b86beb82a43, type: 2}
+  bgm: {fileID: 8300000, guid: 0ac4cb583ea2bc34aac9404d5728603b, type: 3}
+  levelDurationSeconds: 229
   bgmDelaySec: 0
   enemyPrefab: {fileID: 1398160427443776457, guid: 60e602726284b7e4f9514c2ff9e9c51d, type: 3}
-  spawnInterval: 1.5
-  spawnStartDelay: 2
-  spawnStopEarly: 0
+  spawnInterval: 1
+  spawnStartDelay: 3
+  spawnStopEarly: 3
   rewardGold: 20
