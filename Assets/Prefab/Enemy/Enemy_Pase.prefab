@@ -15,6 +15,7 @@ GameObject:
   - component: {fileID: 1398160427443776457}
   - component: {fileID: 349102969050410369}
   - component: {fileID: -1656493263073168366}
+  - component: {fileID: 5105886935213035647}
   m_Layer: 15
   m_Name: Enemy_Pase
   m_TagString: Untagged
@@ -32,7 +33,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 0.6, y: 0.6, z: 1}
+  m_LocalScale: {x: 1.5, y: 1.5, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
@@ -81,8 +82,8 @@ SpriteRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
-  m_Sprite: {fileID: 7482667652216324306, guid: 311925a002f4447b3a28927169b83ea6, type: 3}
-  m_Color: {r: 0.35309958, g: 0.18226027, b: 0.3115441, a: 1}
+  m_Sprite: {fileID: -3074221327333026523, guid: 2ecfd84b28412f44c87cad65f767b6b8, type: 3}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0
@@ -130,13 +131,13 @@ BoxCollider2D:
   m_SpriteTilingProperty:
     border: {x: 0, y: 0, z: 0, w: 0}
     pivot: {x: 0.5, y: 0.5}
-    oldSize: {x: 1, y: 1}
+    oldSize: {x: 0.32, y: 0.66}
     newSize: {x: 1, y: 1}
     adaptiveTilingThreshold: 0.5
     drawMode: 0
     adaptiveTiling: 0
   m_AutoTiling: 0
-  m_Size: {x: 1, y: 1}
+  m_Size: {x: 0.5, y: 0.5}
   m_EdgeRadius: 0
 --- !u!50 &1255276885159382879
 Rigidbody2D:
@@ -180,8 +181,10 @@ MonoBehaviour:
   moveSpeed: 1
   clearAllOnTouch: 1
   destroyOnTouch: 1
-  useLossOverride: 0
-  touchLossOverride: {x: 200, y: 250}
+  useAbsoluteLossOverride: 0
+  touchLossOverrideLegacy: {x: 200, y: 250}
+  usePercentOverride: 1
+  touchLossPercentOverride: {x: 6, y: 9}
   hitStopSecondsDefault: 0.06
   shakeAmplitudeDefault: 0.08
   shakeDamp: 12
@@ -201,19 +204,19 @@ MonoBehaviour:
   bubbleColor: {r: 1, g: 1, b: 1, a: 1}
   font: {fileID: 0}
   textColor: {r: 0, g: 0, b: 0, a: 1}
-  fontSize: 24
+  fontSize: 12
   commentPool:
-  - You such
+  - You Suck
   - Uninstall
   - What is this?
   - Stop playing music
   - No talent
   - LULULULULULULULULULULULULULULULU
-  minWidth: 50
-  maxWidth: 200
+  minWidth: 20
+  maxWidth: 150
   padding: {x: 18, y: 12, z: 18, w: 12}
-  verticalOffset: 1.2
-  canvasScale: 0.01
+  verticalOffset: 0.7
+  canvasScale: 0.008
   lockRotation2D: 1
   showOnEnable: 1
   fadeInSeconds: 0.12
@@ -235,7 +238,68 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   maxHP: 10
   destroyOnDeath: 1
+  flashColor: {r: 1, g: 0.25, b: 0.25, a: 1}
   flashDuration: 0.06
-  flashWhite: 1
+  enableFlash: 1
   hitStopSeconds: 0.06
   shakeAmplitude: 0.08
+--- !u!114 &5105886935213035647
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2431778615558256834}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4f9b5c18acc8f7c45acf6cb5ad638cde, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  spriteRenderer: {fileID: 7881782928076667158}
+  animSets:
+  - frames:
+    - {fileID: 6895495282096838205, guid: 25ecbb52b62533e46805029a72648ce5, type: 3}
+    - {fileID: 7875412785990629474, guid: 25ecbb52b62533e46805029a72648ce5, type: 3}
+    - {fileID: -8210059557235754342, guid: 25ecbb52b62533e46805029a72648ce5, type: 3}
+    - {fileID: -7309582927498218927, guid: 25ecbb52b62533e46805029a72648ce5, type: 3}
+    - {fileID: -4980508039068410277, guid: 25ecbb52b62533e46805029a72648ce5, type: 3}
+    - {fileID: -5295113303118211614, guid: 25ecbb52b62533e46805029a72648ce5, type: 3}
+    - {fileID: -1835152398920951053, guid: 25ecbb52b62533e46805029a72648ce5, type: 3}
+    - {fileID: -4202294216434390414, guid: 25ecbb52b62533e46805029a72648ce5, type: 3}
+    - {fileID: 8415064671076100946, guid: 25ecbb52b62533e46805029a72648ce5, type: 3}
+    - {fileID: -2602046199089826744, guid: 25ecbb52b62533e46805029a72648ce5, type: 3}
+  - frames:
+    - {fileID: -1484833764217864979, guid: aefba8a50755d4f41b1247be02f85ee2, type: 3}
+    - {fileID: 1143817927907195723, guid: aefba8a50755d4f41b1247be02f85ee2, type: 3}
+    - {fileID: 7240610381128429084, guid: aefba8a50755d4f41b1247be02f85ee2, type: 3}
+    - {fileID: -6168533238867101248, guid: aefba8a50755d4f41b1247be02f85ee2, type: 3}
+    - {fileID: -3710438261001376084, guid: aefba8a50755d4f41b1247be02f85ee2, type: 3}
+    - {fileID: 468762589069889810, guid: aefba8a50755d4f41b1247be02f85ee2, type: 3}
+    - {fileID: 581640809013842366, guid: aefba8a50755d4f41b1247be02f85ee2, type: 3}
+    - {fileID: 6478870399431223168, guid: aefba8a50755d4f41b1247be02f85ee2, type: 3}
+    - {fileID: -6739681901928149209, guid: aefba8a50755d4f41b1247be02f85ee2, type: 3}
+    - {fileID: -8334306813002025876, guid: aefba8a50755d4f41b1247be02f85ee2, type: 3}
+  - frames:
+    - {fileID: -3074221327333026523, guid: 2ecfd84b28412f44c87cad65f767b6b8, type: 3}
+    - {fileID: -3484004948789933427, guid: 2ecfd84b28412f44c87cad65f767b6b8, type: 3}
+    - {fileID: 8496955220225664785, guid: 2ecfd84b28412f44c87cad65f767b6b8, type: 3}
+    - {fileID: -7609702942316667023, guid: 2ecfd84b28412f44c87cad65f767b6b8, type: 3}
+    - {fileID: 1599241261735006407, guid: 2ecfd84b28412f44c87cad65f767b6b8, type: 3}
+    - {fileID: 7272874836918754019, guid: 2ecfd84b28412f44c87cad65f767b6b8, type: 3}
+    - {fileID: 8054037337777445988, guid: 2ecfd84b28412f44c87cad65f767b6b8, type: 3}
+    - {fileID: -6414549664727805343, guid: 2ecfd84b28412f44c87cad65f767b6b8, type: 3}
+    - {fileID: -1750310878629887836, guid: 2ecfd84b28412f44c87cad65f767b6b8, type: 3}
+    - {fileID: 30471970953933048, guid: 2ecfd84b28412f44c87cad65f767b6b8, type: 3}
+  - frames:
+    - {fileID: -5633719356832429560, guid: 948deb0826fce2d4181d4465fb610e0c, type: 3}
+    - {fileID: 7129758649967367789, guid: 948deb0826fce2d4181d4465fb610e0c, type: 3}
+    - {fileID: -4572458846192888607, guid: 948deb0826fce2d4181d4465fb610e0c, type: 3}
+    - {fileID: -7609702942316667023, guid: 2ecfd84b28412f44c87cad65f767b6b8, type: 3}
+    - {fileID: 1599241261735006407, guid: 2ecfd84b28412f44c87cad65f767b6b8, type: 3}
+    - {fileID: 7272874836918754019, guid: 2ecfd84b28412f44c87cad65f767b6b8, type: 3}
+    - {fileID: 8054037337777445988, guid: 2ecfd84b28412f44c87cad65f767b6b8, type: 3}
+    - {fileID: -6414549664727805343, guid: 2ecfd84b28412f44c87cad65f767b6b8, type: 3}
+    - {fileID: -1750310878629887836, guid: 2ecfd84b28412f44c87cad65f767b6b8, type: 3}
+    - {fileID: 30471970953933048, guid: 2ecfd84b28412f44c87cad65f767b6b8, type: 3}
+  animFPS: 8
+  randomStartFrame: 1
