@@ -4368,7 +4368,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Binding Lights
+  m_text: Blinding Lights
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: e6b22f902d735e84cb89e01a6e283a61, type: 2}
   m_sharedMaterial: {fileID: -8740904311286225763, guid: e6b22f902d735e84cb89e01a6e283a61, type: 2}
