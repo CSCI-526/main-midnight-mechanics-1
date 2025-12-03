@@ -1,0 +1,19 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0cd6d973cf4137844bd25f29f1383e27, type: 3}
+  m_Name: Chart_Monody
+  m_EditorClassIdentifier: 
+  bpm: 120
+  beatsPerBar: 4
+  songOffsetSec: 0
+  defaultLeadTimeSec: 1.2
+  bars: []
