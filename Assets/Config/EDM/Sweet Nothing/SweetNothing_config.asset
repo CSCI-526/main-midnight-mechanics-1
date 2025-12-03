@@ -10,15 +10,15 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 82f1674aab31d7e4bbf7a0aedb396997, type: 3}
-  m_Name: Config_LoveAgain
+  m_Name: SweetNothing_config
   m_EditorClassIdentifier: 
-  levelName: Level
-  chart: {fileID: 11400000, guid: a56f3a190b0db5647aa11c345e82da15, type: 2}
-  bgm: {fileID: 8300000, guid: 9cc16d86f4bb74ee4a93def06791324b, type: 3}
-  levelDurationSeconds: 260
+  levelName: Sweet Nothing
+  chart: {fileID: 11400000, guid: 9cea0163f6fbf4414bc82eb6493b1b38, type: 2}
+  bgm: {fileID: 8300000, guid: 6925fb822a6fa4c6f9f8dd26a24e58bb, type: 3}
+  levelDurationSeconds: 200
   bgmDelaySec: 0
   enemyPrefab: {fileID: 1398160427443776457, guid: 60e602726284b7e4f9514c2ff9e9c51d, type: 3}
-  spawnInterval: 1.5
-  spawnStartDelay: 25
-  spawnStopEarly: 0
+  spawnInterval: 0.5
+  spawnStartDelay: 1
+  spawnStopEarly: 3
   rewardGold: 20
