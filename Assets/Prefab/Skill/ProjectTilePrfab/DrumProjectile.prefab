@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 5038503899937832940}
   - component: {fileID: 3712779653024971419}
   - component: {fileID: -8378591391221321472}
-  - component: {fileID: 8984801459361849164}
+  - component: {fileID: 3035432963241910496}
   m_Layer: 20
   m_Name: DrumProjectile
   m_TagString: Untagged
@@ -145,7 +145,7 @@ CircleCollider2D:
   m_CompositeOrder: 0
   m_Offset: {x: 0, y: 0}
   m_Radius: 0.5
---- !u!114 &8984801459361849164
+--- !u!114 &3035432963241910496
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -157,10 +157,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 435e2fb5e73dec94fa8440c7a74b69b4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  ringMaterial: {fileID: 0}
-  ringColor: {r: 1, g: 0.6, b: 0, a: 0.7}
-  ringSegments: 48
-  ringWidth: 0.06
+  flashSprite: {fileID: 6809395247341905986, guid: bf6ee0b626f5bb14594c8d1c5e040176, type: 3}
+  flashColor: {r: 1, g: 1, b: 1, a: 0.35686275}
 --- !u!1 &6554232744930034497
 GameObject:
   m_ObjectHideFlags: 0
@@ -170,7 +168,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 8636021608954662851}
-  - component: {fileID: 1239008452828458836}
+  - component: {fileID: 3318603631640539019}
   m_Layer: 20
   m_Name: Visual
   m_TagString: Untagged
@@ -193,7 +191,7 @@ Transform:
   m_Children: []
   m_Father: {fileID: 5120373661918616397}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!212 &1239008452828458836
+--- !u!212 &3318603631640539019
 SpriteRenderer:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}

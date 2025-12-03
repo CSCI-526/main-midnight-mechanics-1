@@ -1986,7 +1986,7 @@ PrefabInstance:
     - target: {fileID: 2491422227328264759, guid: de880de2e3590904bb99f3de08c32391, type: 3}
       propertyPath: skill
       value: 
-      objectReference: {fileID: 11400000, guid: 7dbdfa5a1f170e345af9e5a027e63790, type: 2}
+      objectReference: {fileID: 11400000, guid: f775b4a585fb4c146843c3f0e01327f9, type: 2}
     - target: {fileID: 2491422227328264759, guid: de880de2e3590904bb99f3de08c32391, type: 3}
       propertyPath: dragLayer
       value: 
