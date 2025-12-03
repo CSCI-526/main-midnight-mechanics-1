@@ -154,11 +154,11 @@ RectTransform:
   - {fileID: 2003437002}
   - {fileID: 204423260}
   - {fileID: 1399819476}
-  - {fileID: 1074829483}
   - {fileID: 1351461581}
   - {fileID: 671396119}
   - {fileID: 225628882}
   - {fileID: 861998865}
+  - {fileID: 1074829483}
   - {fileID: 1733084953}
   - {fileID: 1016679735}
   m_Father: {fileID: 931822865}
@@ -6882,7 +6882,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: '  (Lv.3)'
+  m_text: '  (Lv.4)'
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: e6b22f902d735e84cb89e01a6e283a61, type: 2}
   m_sharedMaterial: {fileID: -8740904311286225763, guid: e6b22f902d735e84cb89e01a6e283a61, type: 2}
@@ -6892,7 +6892,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4282154992
-  m_fontColor: {r: 0, g: 0.97742033, b: 1, a: 1}
+  m_fontColor: {r: 1, g: 0.49212486, b: 0, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
