@@ -14,11 +14,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   levelName: Level
   chart: {fileID: 11400000, guid: 61a4b41befe9f3d4683f2c8222affaa1, type: 2}
-  bgm: {fileID: 8300000, guid: 39205f27969f11346993261ceca05c34, type: 3}
-  levelDurationSeconds: 90
+  bgm: {fileID: 8300000, guid: 3b22f0cbf3b1b204cb780611ae81c430, type: 3}
+  levelDurationSeconds: 86
   bgmDelaySec: 0
   enemyPrefab: {fileID: 1398160427443776457, guid: 60e602726284b7e4f9514c2ff9e9c51d, type: 3}
-  spawnInterval: 1.5
-  spawnStartDelay: 0
-  spawnStopEarly: 0
+  spawnInterval: 2.5
+  spawnStartDelay: 10
+  spawnStopEarly: 4
   rewardGold: 20

@@ -15,10 +15,10 @@ MonoBehaviour:
   levelName: Level
   chart: {fileID: 11400000, guid: a56f3a190b0db5647aa11c345e82da15, type: 2}
   bgm: {fileID: 8300000, guid: 9cc16d86f4bb74ee4a93def06791324b, type: 3}
-  levelDurationSeconds: 260
+  levelDurationSeconds: 177
   bgmDelaySec: 0
   enemyPrefab: {fileID: 1398160427443776457, guid: 60e602726284b7e4f9514c2ff9e9c51d, type: 3}
   spawnInterval: 1.5
   spawnStartDelay: 25
-  spawnStopEarly: 0
+  spawnStopEarly: 2
   rewardGold: 20
