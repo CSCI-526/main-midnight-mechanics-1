@@ -15,7 +15,7 @@ MonoBehaviour:
   levelName: Castle On The Hill
   chart: {fileID: 11400000, guid: 6055791040b5048bca5032a9a1770b18, type: 2}
   bgm: {fileID: 8300000, guid: 0730d5f8ff3dd4662906186379312a05, type: 3}
-  levelDurationSeconds: 200
+  levelDurationSeconds: 262
   bgmDelaySec: 0
   enemyPrefab: {fileID: 1398160427443776457, guid: 60e602726284b7e4f9514c2ff9e9c51d, type: 3}
   spawnInterval: 0.8
