@@ -15,10 +15,10 @@ MonoBehaviour:
   levelName: Sweet Nothing
   chart: {fileID: 11400000, guid: 9cea0163f6fbf4414bc82eb6493b1b38, type: 2}
   bgm: {fileID: 8300000, guid: 6925fb822a6fa4c6f9f8dd26a24e58bb, type: 3}
-  levelDurationSeconds: 200
+  levelDurationSeconds: 215
   bgmDelaySec: 0
   enemyPrefab: {fileID: 1398160427443776457, guid: 60e602726284b7e4f9514c2ff9e9c51d, type: 3}
-  spawnInterval: 0.5
-  spawnStartDelay: 1
+  spawnInterval: 1
+  spawnStartDelay: 2
   spawnStopEarly: 3
   rewardGold: 20
