@@ -2,14 +2,8 @@ Project Created for 2025 Fall USC CS-526
 
 Rhythm Clash
 
-WASD/up down right left to give input
+Game Description
+Rhythm Clash is a rhythm game with a rogue-like combat system. The player's goal is to kill as many enemies as possible using a rhythm bar at the bottom of the screen and ensuring one's own survival within the limited time. Players can initiate skill attacks by completing the input on the rhythm bar. Players can also buy new skills before each level.
 
-Press space bar at the right moment to perform attack!
-having all the extra input correctly will perform extra skill.
-
-Unity Project GitHub Repository
-https://github.com/CSCI-526/main-midnight-mechanics-1
-
-Playable Alpha Progress Check Build
-https://csci-526.github.io/main-midnight-mechanics-1/alphaProgressCheck/
-
+Controls
+Use W and O as input
